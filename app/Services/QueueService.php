@@ -36,9 +36,9 @@ class QueueService
      */
     public function getNextNumber(Queue $queue): int
     {
-        if ($queue->status !== 'active') {
-            throw new \Exception('Queue is not active');
-        }
+        // if ($queue->status !== 'active') {
+        //     throw new \Exception('Queue is not active');
+        // }
 
         $nextNumber = $queue->current_number + 1;
         
@@ -186,9 +186,9 @@ class QueueService
      */
     public function skipNumber(Queue $queue): Queue
     {
-        if ($queue->status !== 'active') {
-            throw new \Exception('Queue is not active');
-        }
+        // if ($queue->status !== 'active') {
+        //     throw new \Exception('Queue is not active');
+        // }
 
         // Just increment the number without creating an entry
         $queue->update(['current_number' => $queue->current_number + 1]);
@@ -204,9 +204,9 @@ class QueueService
      */
     public function recallNumber(Queue $queue): Queue
     {
-        if ($queue->status !== 'active') {
-            throw new \Exception('Queue is not active');
-        }
+        // if ($queue->status !== 'active') {
+        //     throw new \Exception('Queue is not active');
+        // }
 
         // Broadcast recall event (same as queue update for now)
         event(new QueueUpdated($queue));

@@ -42,7 +42,7 @@ class WidgetService
                     'id' => $widget->id,
                     'type' => $widget->type,
                     'position' => json_decode($widget->position, true),
-                    'settings' => $widget->settings_json,
+                    'settings' => $widget->settings,
                     'data' => $this->generateWidgetData($widget)
                 ];
             }
@@ -76,7 +76,7 @@ class WidgetService
                     'id' => $widget->id,
                     'type' => $widget->type,
                     'position' => json_decode($widget->position, true),
-                    'settings' => $widget->settings_json,
+                    'settings' => $widget->settings,
                     'data' => $this->generateWidgetData($widget)
                 ];
             }
@@ -180,7 +180,7 @@ class WidgetService
     public function updateWidgetSettings(Widget $widget, array $settings): Widget
     {
         try {
-            $widget->update(['settings_json' => $settings]);
+            $widget->update(['settings' => $settings]);
             return $widget->fresh();
         } catch (\Exception $e) {
             Log::error('Failed to update widget settings: ' . $e->getMessage());
@@ -211,31 +211,31 @@ class WidgetService
                 return [
                     'current_time' => now()->format('H:i:s'),
                     'timezone' => config('app.timezone'),
-                    'format' => $widget->settings_json['format'] ?? 'H:i:s'
+                    'format' => $widget->settings['format'] ?? 'H:i:s'
                 ];
             
             case 'date':
                 return [
                     'current_date' => now()->format('l, F j, Y'),
                     'day_of_week' => now()->format('l'),
-                    'format' => $widget->settings_json['format'] ?? 'l, F j, Y'
+                    'format' => $widget->settings['format'] ?? 'l, F j, Y'
                 ];
             
             case 'weather':
-                return $this->getWeatherData($widget->settings_json);
+                return $this->getWeatherData($widget->settings);
             
             case 'queue':
-                return $this->getQueueData($widget->settings_json);
+                return $this->getQueueData($widget->settings);
             
             case 'announcement':
                 return [
-                    'message' => $widget->settings_json['message'] ?? 'Welcome to our service!',
-                    'type' => $widget->settings_json['type'] ?? 'info',
-                    'duration' => $widget->settings_json['duration'] ?? 5000
+                    'message' => $widget->settings['message'] ?? 'Welcome to our service!',
+                    'type' => $widget->settings['type'] ?? 'info',
+                    'duration' => $widget->settings['duration'] ?? 5000
                 ];
             
             case 'custom':
-                return $widget->settings_json['data'] ?? [];
+                return $widget->settings['data'] ?? [];
             
             default:
                 return [];
@@ -261,15 +261,15 @@ class WidgetService
                 ];
             
             case 'weather':
-                return $includeWeatherData ? $this->getWeatherData($widget->settings_json) : [];
+                return $includeWeatherData ? $this->getWeatherData($widget->settings) : [];
             
             case 'queue':
-                return $includeQueueData ? $this->getQueueData($widget->settings_json) : [];
+                return $includeQueueData ? $this->getQueueData($widget->settings) : [];
             
             case 'announcement':
                 return [
-                    'message' => $widget->settings_json['message'] ?? 'Welcome to our service!',
-                    'type' => $widget->settings_json['type'] ?? 'info'
+                    'message' => $widget->settings['message'] ?? 'Welcome to our service!',
+                    'type' => $widget->settings['type'] ?? 'info'
                 ];
             
             default:

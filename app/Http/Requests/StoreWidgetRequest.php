@@ -29,7 +29,7 @@ class StoreWidgetRequest extends FormRequest
             'position.y' => 'required|integer|min:0',
             'position.width' => 'required|integer|min:1',
             'position.height' => 'required|integer|min:1',
-            'settings_json' => 'array',
+            'settings' => 'array',
         ];
     }
 
@@ -58,7 +58,7 @@ class StoreWidgetRequest extends FormRequest
             'position.height.required' => 'Widget height is required.',
             'position.height.integer' => 'Widget height must be a number.',
             'position.height.min' => 'Widget height must be at least 1.',
-            'settings_json.array' => 'Widget settings must be an array.',
+            'settings.array' => 'Widget settings must be an array.',
         ];
     }
 }

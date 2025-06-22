@@ -497,4 +497,57 @@ class CustomerTrackingService
             throw new \Exception("Invalid status transition from '{$oldStatus}' to '{$newStatus}'");
         }
     }
+
+    /**
+     * Update tracking status for a queue entry
+     */
+    public function updateTrackingStatus($entry_id, array $data): ?CustomerTracking
+    {
+        try {
+            $tracking = CustomerTracking::where('queue_entry_id', $entry_id)->first();
+            
+            if (!$tracking) {
+                return null;
+            }
+            
+            $updateData = [];
+            
+            if (isset($data['status'])) {
+                $updateData['status'] = $data['status'];
+            }
+            
+            if (isset($data['estimated_wait_time'])) {
+                $updateData['estimated_wait_time'] = $data['estimated_wait_time'];
+            }
+            
+            if (isset($data['current_position'])) {
+                $updateData['current_position'] = $data['current_position'];
+            }
+            
+            $updateData['last_updated'] = now();
+            
+            $tracking->update($updateData);
+
+            return $tracking->load('entry');
+        } catch (\Exception $e) {
+            Log::error('Failed to update tracking status: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Get tracking record directly (for API responses)
+     */
+    public function getTrackingRecord($entry_id): CustomerTracking
+    {
+        $tracking = CustomerTracking::where('queue_entry_id', $entry_id)
+            ->with(['entry.queue', 'entry.cashier'])
+            ->firstOrFail();
+
+        return $tracking;
+    }
+
+    /**
+     * Get tracking info for a queue entry (QR code endpoint)
+     */
 } 

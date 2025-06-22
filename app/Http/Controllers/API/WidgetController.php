@@ -179,7 +179,7 @@ class WidgetController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'settings_json' => 'required|array'
+                'settings' => 'required|array'
             ]);
 
             if ($validator->fails()) {
@@ -190,7 +190,7 @@ class WidgetController extends Controller
                 ], 422);
             }
 
-            $updatedWidget = $this->widgetService->updateWidgetSettings($widget, $request->input('settings_json'));
+            $updatedWidget = $this->widgetService->updateWidgetSettings($widget, $request->input('settings'));
             
             return response()->json([
                 'success' => true,

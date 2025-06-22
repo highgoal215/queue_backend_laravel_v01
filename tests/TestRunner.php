@@ -104,7 +104,7 @@ class TestRunner
         // Test queue creation
         $queueData = [
             'name' => 'Test Queue',
-            'type' => 'food',
+            'type' => 'regular',
             'max_quantity' => 100,
             'remaining_quantity' => 50,
             'status' => 'active',
@@ -184,7 +184,7 @@ class TestRunner
         $response = app('Illuminate\Contracts\Http\Kernel')
             ->handle(app('Illuminate\Http\Request')->create('/api/queues', 'POST', [
                 'name' => 'API Test Queue',
-                'type' => 'food',
+                'type' => 'regular',
                 'max_quantity' => 100
             ]));
         $results['create'] = $response->getStatusCode() === 201;

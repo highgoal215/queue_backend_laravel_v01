@@ -313,6 +313,33 @@ class QueueService
     }
 
     /**
+     * Get queue entries with pagination
+     */
+    public function getQueueEntries(Queue $queue, array $filters = []): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    {
+        $query = $queue->entries()
+            ->with(['cashier', 'tracking'])
+            ->orderBy('created_at', 'desc');
+
+        // Apply filters
+        if (isset($filters['status'])) {
+            $query->where('order_status', $filters['status']);
+        }
+
+        if (isset($filters['cashier_id'])) {
+            $query->where('cashier_id', $filters['cashier_id']);
+        }
+
+        if (isset($filters['date'])) {
+            $query->whereDate('created_at', $filters['date']);
+        }
+
+        $perPage = $filters['per_page'] ?? 15;
+        
+        return $query->paginate($perPage);
+    }
+
+    /**
      * Get all queues with their current status
      */
     public function getAllQueues(): \Illuminate\Database\Eloquent\Collection

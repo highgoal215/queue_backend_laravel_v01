@@ -54,18 +54,23 @@ class CustomerTrackingController extends Controller
     public function show($entry_id): JsonResponse
     {
         try {
-            $trackingData = $this->trackingService->getTrackingInfo($entry_id);
-            
+            $trackingRecord = $this->trackingService->getTrackingRecord($entry_id);
+
             return response()->json([
                 'success' => true,
-                'data' => $trackingData,
+                'data' => $trackingRecord,
                 'message' => 'Tracking info retrieved successfully'
             ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Customer tracking not found'
+            ], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve tracking info: ' . $e->getMessage()
-            ], 404);
+            ], 500);
         }
     }
 
@@ -163,9 +168,9 @@ class CustomerTrackingController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'order_status' => 'required|in:queued,kitchen,preparing,serving,completed,cancelled',
-                'notes' => 'nullable|string|max:500',
-                'estimated_completion_time' => 'nullable|date|after:now',
+                'status' => 'sometimes|in:waiting,called,served,cancelled,no_show',
+                'estimated_wait_time' => 'sometimes|integer|min:0',
+                'current_position' => 'sometimes|integer|min:0',
             ]);
 
             if ($validator->fails()) {
@@ -176,17 +181,24 @@ class CustomerTrackingController extends Controller
                 ], 422);
             }
 
-            $updatedEntry = $this->trackingService->updateOrderStatus($entry_id, $request->all());
+            $updatedTracking = $this->trackingService->updateTrackingStatus($entry_id, $request->all());
+            
+            if (!$updatedTracking) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Customer tracking not found'
+                ], 404);
+            }
             
             return response()->json([
                 'success' => true,
-                'data' => $updatedEntry,
-                'message' => 'Order status updated successfully'
+                'data' => $updatedTracking,
+                'message' => 'Tracking status updated successfully'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update order status: ' . $e->getMessage()
+                'message' => 'Failed to update tracking status: ' . $e->getMessage()
             ], 500);
         }
     }

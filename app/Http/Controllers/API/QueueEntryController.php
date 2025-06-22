@@ -73,7 +73,9 @@ class QueueEntryController extends Controller
                     $data['order_details'] = $decoded;
                 }
             }
-            $entry = QueueEntry::create($data);
+            
+            $entry = $this->queueEntryService->createEntry($data);
+            
             return response()->json([
                 'success' => true,
                 'data' => $entry,
@@ -82,8 +84,7 @@ class QueueEntryController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create queue entry: ' . $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'message' => 'Failed to create queue entry: ' . $e->getMessage()
             ], 500);
         }
     }

@@ -59,7 +59,7 @@ class LayoutService
                         'screen_layout_id' => $layout->id,
                         'type' => $widgetData['type'],
                         'position' => json_encode($widgetData['position']),
-                        'settings_json' => $widgetData['settings'] ?? null,
+                        'settings' => $widgetData['settings'] ?? null,
                     ]);
                 }
             }
@@ -105,7 +105,7 @@ class LayoutService
                         'screen_layout_id' => $layout->id,
                         'type' => $widgetData['type'],
                         'position' => json_encode($widgetData['position']),
-                        'settings_json' => $widgetData['settings'] ?? null,
+                        'settings' => $widgetData['settings'] ?? null,
                     ]);
                 }
             }
@@ -220,7 +220,7 @@ class LayoutService
                 'id' => $widget->id,
                 'type' => $widget->type,
                 'position' => json_decode($widget->position, true),
-                'settings' => $widget->settings_json,
+                'settings' => $widget->settings,
                 'preview_data' => $this->generateWidgetPreviewData($widget)
             ];
         }

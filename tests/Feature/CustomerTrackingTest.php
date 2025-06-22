@@ -311,9 +311,52 @@ class CustomerTrackingTest extends TestCase
     {
         Sanctum::actingAs($this->user);
 
-        // This test is not applicable since queue_entry_id is required
-        // and cannot be null. The tracking system always requires a queue entry.
-        $this->markTestSkipped('Tracking without queue entry is not supported as queue_entry_id is required.');
+        // Test scenario: What happens when we try to access tracking for a non-existent queue entry
+        $nonExistentEntryId = 99999;
+
+        // Try to get tracking for non-existent entry
+        $response = $this->getJson("/api/tracking/{$nonExistentEntryId}");
+
+        $response->assertStatus(404)
+                ->assertJson([
+                    'success' => false,
+                    'message' => 'Customer tracking not found'
+                ]);
+
+        // Try to update tracking for non-existent entry
+        $updateResponse = $this->patchJson("/api/tracking/{$nonExistentEntryId}/status", [
+            'status' => 'called'
+        ]);
+
+        $updateResponse->assertStatus(404)
+                ->assertJson([
+                    'success' => false,
+                    'message' => 'Customer tracking not found'
+                ]);
+
+        // Test scenario: What happens when a queue entry is deleted but tracking remains
+        // First, create a tracking entry
+        $tracking = CustomerTracking::factory()->create([
+            'queue_entry_id' => $this->queueEntry->id
+        ]);
+
+        // Verify tracking exists
+        $this->assertDatabaseHas('customer_tracking', [
+            'id' => $tracking->id,
+            'queue_entry_id' => $this->queueEntry->id
+        ]);
+
+        // Delete the queue entry (this should cascade delete the tracking)
+        $this->queueEntry->delete();
+
+        // Verify tracking is also deleted due to cascade
+        $this->assertDatabaseMissing('customer_tracking', [
+            'id' => $tracking->id
+        ]);
+
+        // Try to access the deleted tracking
+        $deletedResponse = $this->getJson("/api/tracking/{$this->queueEntry->id}");
+        $deletedResponse->assertStatus(404);
     }
 
     /** @test */

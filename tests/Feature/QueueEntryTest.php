@@ -22,7 +22,7 @@ class QueueEntryTest extends TestCase
     {
         parent::setUp();
         $this->user = User::factory()->create();
-        $this->queue = Queue::factory()->active()->create();
+        $this->queue = Queue::factory()->active()->regular()->create();
     }
 
     /** @test */
@@ -78,7 +78,8 @@ class QueueEntryTest extends TestCase
                 'total' => 25.50
             ]),
             'estimated_wait_time' => 15,
-            'notes' => 'Extra cheese please'
+            'notes' => 'Extra cheese please',
+            'quantity_purchased' => 3
         ];
 
         // Act
@@ -259,7 +260,9 @@ class QueueEntryTest extends TestCase
     {
         // Arrange
         Sanctum::actingAs($this->user);
-        $entry = QueueEntry::factory()->create();
+        $entry = QueueEntry::factory()->create([
+            'queue_id' => Queue::factory()->regular()->active()->create()->id
+        ]);
 
         // Act
         $response = $this->postJson("/api/entries/{$entry->id}/cancel");

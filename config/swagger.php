@@ -47,7 +47,7 @@ return [
             'pattern' => null,
             'exclude' => [],
             'exclude_glob' => [],
-            'openapi_spec_version' => env('L5_SWAGGER_OPENAPI_SPEC_VERSION', \L5Swagger\Generator::OPEN_API_DEFAULT_SPEC_VERSION),
+            'openapi_spec_version' => env('L5_SWAGGER_OPENAPI_SPEC_VERSION', '3.0.0'),
         ],
         'securityDefinitions' => [
             'securitySchemes' => [

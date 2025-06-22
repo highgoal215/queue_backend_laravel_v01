@@ -310,8 +310,8 @@ class TestRunner
         $entry->update(['order_status' => 'preparing']);
         $results['order_preparing'] = $entry->order_status === 'preparing';
 
-        $entry->update(['order_status' => 'ready']);
-        $results['order_ready'] = $entry->order_status === 'ready';
+        $entry->update(['order_status' => 'serving']);
+        $results['order_ready'] = $entry->order_status === 'serving';
 
         $entry->update(['order_status' => 'completed']);
         $results['order_completed'] = $entry->order_status === 'completed';
@@ -352,7 +352,7 @@ class TestRunner
         }
 
         $results['concurrent_creation'] = count($entries) === 10;
-        $results['unique_numbers'] = $entries->pluck('queue_number')->unique()->count() === 10;
+        $results['unique_numbers'] = collect($entries)->pluck('queue_number')->unique()->count() === 10;
 
         return $results;
     }

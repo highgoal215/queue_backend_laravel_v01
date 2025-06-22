@@ -15,11 +15,15 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
+            'password' => 'required|string|min:8|confirmed',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
         $user = User::create([
@@ -28,10 +32,15 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        // $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $user->createToken('auth_token')->plainTextToken;
+        
         return response()->json([
-            'user' => $user,
-            // 'token' => $token,
+            'success' => true,
+            'data' => [
+                'user' => $user,
+                'token' => $token,
+            ],
+            'message' => 'User registered successfully'
         ], 201);
     }
 
@@ -43,12 +52,17 @@ class AuthController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
         if (!Auth::attempt($request->only('email', 'password'))) {
             return response()->json([
-                'message' => 'Invalid login credentials'
+                'success' => false,
+                'message' => 'Invalid credentials'
             ], 401);
         }
 
@@ -56,8 +70,12 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
-            'token' => $token,
+            'success' => true,
+            'data' => [
+                'user' => $user,
+                'token' => $token,
+            ],
+            'message' => 'Login successful'
         ]);
     }
 
@@ -65,12 +83,22 @@ class AuthController extends Controller
     {
         $user = $request->user();
         if (!$user) {
-            return response()->json(['message' => 'User not authenticated'], 401);
+            return response()->json([
+                'success' => false,
+                'message' => 'User not authenticated'
+            ], 401);
         }
+        
         return response()->json([
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
+            'success' => true,
+            'data' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'created_at' => $user->created_at,
+                'updated_at' => $user->updated_at,
+            ],
+            'message' => 'User retrieved successfully'
         ]);
     }
 
@@ -78,7 +106,10 @@ class AuthController extends Controller
     {
         $user = $request->user();
         if (!$user) {
-            return response()->json(['message' => 'User not authenticated'], 401);
+            return response()->json([
+                'success' => false,
+                'message' => 'User not authenticated'
+            ], 401);
         }
 
         $validator = Validator::make($request->all(), [
@@ -88,24 +119,31 @@ class AuthController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
         $data = $request->only(['name', 'email']);
 
         if ($request->filled('password')) {
-            $data['password'] = $request->password; // Let model handle hashing
+            $data['password'] = Hash::make($request->password);
         }
 
         $user->update($data);
 
         return response()->json([
-            'message' => 'User updated successfully',
-            'user' => [
+            'success' => true,
+            'data' => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
-            ]
+                'created_at' => $user->created_at,
+                'updated_at' => $user->updated_at,
+            ],
+            'message' => 'User updated successfully'
         ]);
     }
 }

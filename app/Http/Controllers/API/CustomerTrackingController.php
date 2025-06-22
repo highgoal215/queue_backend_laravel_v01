@@ -23,7 +23,11 @@ class CustomerTrackingController extends Controller
     }
 
     /**
-     * Display a listing of tracking records
+     * @OA\Get(
+     *     path="/api/queues",
+     *     summary="Get all queues",
+     *     @OA\Response(response="200", description="List of queues")
+     * )
      */
     public function index(Request $request): JsonResponse
     {

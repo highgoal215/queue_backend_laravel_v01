@@ -19,6 +19,7 @@ class QueueSeeder extends Seeder
         $regularQueue = Queue::create([
             'name' => 'Customer Service',
             'type' => 'regular',
+            'max_quantity' => 1000,
             'status' => 'active',
             'current_number' => 5,
         ]);
@@ -27,7 +28,6 @@ class QueueSeeder extends Seeder
             'name' => 'Steak Promotion',
             'type' => 'inventory',
             'max_quantity' => 1000,
-            'remaining_quantity' => 750,
             'status' => 'active',
             'current_number' => 3,
         ]);
@@ -56,7 +56,9 @@ class QueueSeeder extends Seeder
             $entry = QueueEntry::create([
                 'queue_id' => $regularQueue->id,
                 'queue_number' => $i,
-                'quantity_purchased' => null,
+                'customer_name' => 'Customer ' . $i,
+                'phone_number' => '555-000' . $i,
+                'quantity_purchased' => 20 * $i,
                 'cashier_id' => $cashier1->id,
                 'order_status' => $i <= 3 ? 'completed' : ($i == 4 ? 'preparing' : 'queued'),
             ]);

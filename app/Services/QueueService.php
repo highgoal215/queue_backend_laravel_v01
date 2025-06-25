@@ -19,8 +19,8 @@ class QueueService
         $queue = Queue::create([
             'name' => $data['name'],
             'type' => $data['type'],
-            'max_quantity' => $data['type'] === 'inventory' ? $data['max_quantity'] : null,
-            'remaining_quantity' => $data['type'] === 'inventory' ? $data['remaining_quantity'] : null,
+            'max_quantity' => $data['max_quantity'],
+            'remaining_quantity' => $data['max_quantity'],
             'status' => $data['status'] ?? 'active',
             'current_number' => 0,
         ]);
@@ -111,47 +111,40 @@ class QueueService
             throw new \Exception('Queue is not active');
         }
 
-        // For inventory queues, check stock availability
-        if ($queue->type === 'inventory') {
-            $requestedQuantity = $data['quantity_purchased'] ?? 0;
-            
-            if ($requestedQuantity > $queue->remaining_quantity) {
-                throw new \Exception('Requested quantity exceeds remaining stock');
-            }
-
-            if ($queue->remaining_quantity <= 0) {
-                throw new \Exception('Stock is depleted');
-            }
+        $requestedQuantity = $data['quantity_purchased'] ?? 0;
+        if ($requestedQuantity > $queue->remaining_quantity) {
+            throw new \Exception('Requested quantity exceeds remaining stock');
+        }
+        if ($queue->remaining_quantity <= 0) {
+            throw new \Exception('Stock is depleted');
         }
 
         DB::beginTransaction();
         try {
             // Get next number for this entry
             $nextNumber = $this->getNextNumber($queue);
-            
+
             // Create queue entry
             $entry = QueueEntry::create([
                 'queue_id' => $queue->id,
                 'queue_number' => $nextNumber,
-                'quantity_purchased' => $data['quantity_purchased'] ?? null,
+                'quantity_purchased' => $data['quantity_purchased'],
                 'cashier_id' => $data['cashier_id'] ?? null,
                 'order_status' => 'queued',
             ]);
 
-            // Update remaining quantity for inventory queues
-            if ($queue->type === 'inventory' && isset($data['quantity_purchased'])) {
-                $newRemaining = $queue->remaining_quantity - $data['quantity_purchased'];
-                $queue->update(['remaining_quantity' => $newRemaining]);
+            // Update remaining quantity for both queue types
+            $newRemaining = $queue->remaining_quantity - $data['quantity_purchased'];
+            $queue->update(['remaining_quantity' => $newRemaining]);
 
-                // Check if stock is depleted
-                if ($newRemaining <= 0) {
-                    $queue->update(['status' => 'closed']);
-                    event(new StockDepleted($queue));
-                }
+            // Check if stock is depleted
+            if ($newRemaining <= 0) {
+                $queue->update(['status' => 'closed']);
+                event(new StockDepleted($queue));
             }
 
             DB::commit();
-            
+
             // Broadcast queue update
             event(new QueueUpdated($queue));
 

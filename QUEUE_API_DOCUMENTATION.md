@@ -60,7 +60,6 @@ Creates a new queue.
 {
     "name": "New Queue",
     "type": "regular",
-    "status": "active"
 }
 ```
 
@@ -71,7 +70,6 @@ For inventory queues:
     "type": "inventory",
     "max_quantity": 1000,
     "remaining_quantity": 1000,
-    "status": "active"
 }
 ```
 

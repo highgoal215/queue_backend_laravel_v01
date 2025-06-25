@@ -68,11 +68,31 @@ Creates a new queue entry.
 ```json
 {
     "queue_id": 1,
+    "customer_name": "John Doe",
+    "phone_number": "555-1234",
     "quantity_purchased": 150,
+    "order_details": {
+        "items": ["Steak", "Fries"],
+        "special_instructions": "Medium rare"
+    },
+    "notes": "VIP customer",
     "cashier_id": 1,
     "order_status": "queued"
 }
 ```
+
+**Required Parameters:**
+- `queue_id` - ID of the queue to join
+- `customer_name` - Customer's full name
+- `phone_number` - Customer's phone number
+- `quantity_purchased` - Quantity purchased (must be at least 1)
+
+**Optional Parameters:**
+- `order_details` - JSON object containing order details
+- `notes` - Additional notes about the order
+- `cashier_id` - ID of the assigned cashier
+- `order_status` - Initial order status (defaults to "queued")
+- `estimated_wait_time` - Estimated wait time in minutes
 
 **Response:**
 ```json
@@ -473,7 +493,14 @@ curl -X POST http://your-domain.com/api/entries \
   -H "Authorization: Bearer {token}" \
   -d '{
     "queue_id": 1,
+    "customer_name": "John Doe",
+    "phone_number": "555-1234",
     "quantity_purchased": 150,
+    "order_details": {
+        "items": ["Steak", "Fries"],
+        "special_instructions": "Medium rare"
+    },
+    "notes": "VIP customer",
     "cashier_id": 1,
     "order_status": "queued"
   }'

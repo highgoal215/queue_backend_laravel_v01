@@ -28,7 +28,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Queues - Complete CRUD and management operations
     Route::prefix('queues')->group(function () {
         Route::get('/', [QueueController::class, 'index']);
-        Route::post('/', [QueueController::class, 'store']);
+        Route::post('/createqueue', [QueueController::class, 'store']);
         Route::get('/{queue}', [QueueController::class, 'show']);
         Route::put('/{queue}', [QueueController::class, 'update']);
         Route::delete('/{queue}', [QueueController::class, 'destroy']);

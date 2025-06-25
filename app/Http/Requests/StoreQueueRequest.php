@@ -24,8 +24,7 @@ class StoreQueueRequest extends FormRequest
         return [
             'name' => 'required|string|max:255',
             'type' => 'required|in:regular,inventory',
-            'max_quantity' => 'nullable|integer|min:1|required_if:type,inventory',
-            'remaining_quantity' => 'nullable|integer|min:0|required_if:type,inventory',
+            'max_quantity' => 'required|integer|min:1',
             'status' => 'sometimes|in:active,paused,closed',
         ];
     }
@@ -39,12 +38,9 @@ class StoreQueueRequest extends FormRequest
             'name.required' => 'Queue name is required.',
             'type.required' => 'Queue type is required.',
             'type.in' => 'Queue type must be either regular or inventory.',
-            'max_quantity.required_if' => 'Maximum quantity is required for inventory queues.',
+            'max_quantity.required' => 'Maximum quantity is required.',
             'max_quantity.integer' => 'Maximum quantity must be a number.',
             'max_quantity.min' => 'Maximum quantity must be at least 1.',
-            'remaining_quantity.required_if' => 'Remaining quantity is required for inventory queues.',
-            'remaining_quantity.integer' => 'Remaining quantity must be a number.',
-            'remaining_quantity.min' => 'Remaining quantity cannot be negative.',
         ];
     }
 }

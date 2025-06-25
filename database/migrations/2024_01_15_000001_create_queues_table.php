@@ -11,7 +11,7 @@ return new class extends Migration {
             $table->enum('type', ['regular', 'inventory']);
             $table->integer('max_quantity')->nullable();
             $table->integer('remaining_quantity')->nullable();
-            $table->enum('status', ['active', 'paused', 'closed'])->default('active');
+            $table->enum('status', allowed: ['active', 'paused', 'closed'])->default('active');
             $table->integer('current_number')->default(0);
             $table->timestamps();
         });

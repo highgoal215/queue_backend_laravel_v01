@@ -49,7 +49,7 @@ class CashierController extends Controller
     {
         try {
             $cashier = $this->cashierService->createCashier($request->validated());
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $cashier->load('queue'),
@@ -76,7 +76,7 @@ class CashierController extends Controller
                 'name' => $cashier->queue->name,
                 'type' => $cashier->queue->type
             ] : null;
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $data,
@@ -119,14 +119,14 @@ class CashierController extends Controller
 
             $updatedCashier = $this->cashierService->updateCashier($cashier, $validator->validated());
             $updatedCashier->load('queue');
-            
+
             $data = $updatedCashier->toArray();
             $data['queue'] = $updatedCashier->queue ? [
                 'id' => $updatedCashier->queue->id,
                 'name' => $updatedCashier->queue->name,
                 'type' => $updatedCashier->queue->type
             ] : null;
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $data,
@@ -147,7 +147,7 @@ class CashierController extends Controller
     {
         try {
             $this->cashierService->deleteCashier($cashier);
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Cashier deleted successfully'
@@ -169,7 +169,7 @@ class CashierController extends Controller
             $validator = Validator::make($request->all(), [
                 'assigned_queue_id' => 'required|exists:queues,id',
             ]);
-            
+
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
@@ -177,17 +177,17 @@ class CashierController extends Controller
                     'errors' => $validator->errors()
                 ], 422);
             }
-            
+
             $updatedCashier = $this->cashierService->assignToQueue($cashier, $request->assigned_queue_id);
             $updatedCashier->load('queue');
-            
+
             $data = $updatedCashier->toArray();
             $data['queue'] = $updatedCashier->queue ? [
                 'id' => $updatedCashier->queue->id,
                 'name' => $updatedCashier->queue->name,
                 'type' => $updatedCashier->queue->type
             ] : null;
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $data,
@@ -210,7 +210,7 @@ class CashierController extends Controller
             $validator = Validator::make($request->all(), [
                 'is_active' => 'required|boolean',
             ]);
-            
+
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
@@ -218,9 +218,9 @@ class CashierController extends Controller
                     'errors' => $validator->errors()
                 ], 422);
             }
-            
+
             $updatedCashier = $this->cashierService->setActiveStatus($cashier, $request->is_active);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $updatedCashier,
@@ -241,7 +241,7 @@ class CashierController extends Controller
     {
         try {
             $queues = $this->cashierService->getQueuesWithCashiers();
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $queues,

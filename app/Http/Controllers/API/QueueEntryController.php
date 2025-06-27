@@ -481,4 +481,136 @@ class QueueEntryController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get all entries with specific details for display
+     */
+    public function getAllEntriesWithDetails(Request $request): JsonResponse
+    {
+        try {
+            $filters = $request->only(['status', 'cashier_id', 'date', 'queue_id', 'search']);
+            
+            $query = QueueEntry::with(['queue', 'cashier'])
+                ->select([
+                    'id',
+                    'queue_id',
+                    'customer_name',
+                    'order_details',
+                    'order_status',
+                    'estimated_wait_time',
+                    'cashier_id',
+                    'created_at',
+                    'updated_at'
+                ]);
+
+            // Apply filters
+            if (isset($filters['status'])) {
+                $query->where('order_status', $filters['status']);
+            }
+
+            if (isset($filters['cashier_id'])) {
+                $query->where('cashier_id', $filters['cashier_id']);
+            }
+
+            if (isset($filters['queue_id'])) {
+                $query->where('queue_id', $filters['queue_id']);
+            }
+
+            if (isset($filters['date'])) {
+                $query->whereDate('created_at', $filters['date']);
+            }
+
+            if (isset($filters['search'])) {
+                $query->where(function ($q) use ($filters) {
+                    $q->where('customer_name', 'like', '%' . $filters['search'] . '%')
+                      ->orWhere('queue_number', 'like', '%' . $filters['search'] . '%');
+                });
+            }
+
+            $entries = $query->orderBy('created_at', 'desc')->get();
+
+            // Transform data to match requested format
+            $transformedEntries = $entries->map(function ($entry) {
+                // Calculate wait time if not set
+                $waitTime = $entry->estimated_wait_time;
+                if (!$waitTime) {
+                    $createdTime = $entry->created_at;
+                    $now = now();
+                    $waitTime = $createdTime->diffInMinutes($now);
+                }
+
+                // Determine available actions based on status
+                $actions = $this->getAvailableActions($entry->order_status);
+
+                return [
+                    'id' => $entry->id,
+                    'customer_name' => $entry->customer_name ?? 'Anonymous',
+                    'order_details' => $entry->order_details ?? [],
+                    'status' => $entry->order_status,
+                    'wait_time' => $waitTime . ' minutes',
+                    'cashier' => $entry->cashier ? [
+                        'id' => $entry->cashier->id,
+                        'name' => $entry->cashier->name,
+                        'is_active' => $entry->cashier->is_active
+                    ] : null,
+                    'actions' => $actions,
+                    'queue_info' => [
+                        'id' => $entry->queue->id,
+                        'name' => $entry->queue->name,
+                        'queue_number' => $entry->queue_number ?? 'N/A'
+                    ],
+                    'created_at' => $entry->created_at->format('Y-m-d H:i:s'),
+                    'updated_at' => $entry->updated_at->format('Y-m-d H:i:s')
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'entries' => $transformedEntries,
+                    'total_count' => $transformedEntries->count(),
+                    'filters_applied' => $filters
+                ],
+                'message' => 'Entries retrieved successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve entries: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get available actions for a given status
+     */
+    private function getAvailableActions(string $status): array
+    {
+        $actions = [];
+
+        switch ($status) {
+            case 'queued':
+                $actions = ['start_preparing', 'cancel', 'assign_cashier'];
+                break;
+            case 'preparing':
+                $actions = ['mark_ready', 'cancel', 'extend_wait_time'];
+                break;
+            case 'ready':
+                $actions = ['serve', 'recall', 'extend_wait_time'];
+                break;
+            case 'serving':
+                $actions = ['complete', 'extend_wait_time'];
+                break;
+            case 'completed':
+                $actions = ['view_details'];
+                break;
+            case 'cancelled':
+                $actions = ['view_details', 'reactivate'];
+                break;
+            default:
+                $actions = ['view_details'];
+        }
+
+        return $actions;
+    }
 }

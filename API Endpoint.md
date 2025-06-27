@@ -17,11 +17,15 @@ https://localhost:8000/api
 **POST** `/queues/{queue_id}/pause`
 #### Resume Queue
 **POST** `/queues/{queue_id}/resume`
+
+
 #### Close Queue
 **POST** `/queues/{queue_id}/close`
 ### 7. Queue Number Operations
 #### Call Next Number
 **POST** `/queues/{queue_id}/call-next`
+#### Wueue status
+**POST** `/queues/{queue_id}/status`
 #### Skip Current Number
 **POST** `/queues/{queue_id}/skip`
 #### Recall Current Number

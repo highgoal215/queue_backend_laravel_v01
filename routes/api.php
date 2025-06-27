@@ -58,6 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Queue Entries - Complete CRUD and management operations
     Route::prefix('entries')->group(function () {
         Route::get('/', [QueueEntryController::class, 'index']);
+        Route::get('/all-details', [QueueEntryController::class, 'getAllEntriesWithDetails']);
         Route::post('/', [QueueEntryController::class, 'store']);
         Route::get('/stats', [QueueEntryController::class, 'getStats']);
         Route::get('/search', [QueueEntryController::class, 'search']);
@@ -87,6 +88,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Cashiers
     Route::prefix('cashiers')->group(function () {
         Route::get('/', [CashierController::class, 'index']);
+        Route::get('/detailed', [CashierController::class, 'getDetailedInfo']);
+        Route::get('/essential', [CashierController::class, 'getEssentialInfo']);
         Route::post('/', [CashierController::class, 'store']);
         Route::get('/{cashier}', [CashierController::class, 'show']);
         Route::put('/{cashier}', [CashierController::class, 'update']);

@@ -9,6 +9,7 @@ use App\Services\LayoutService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 
 class ScreenLayoutController extends Controller
 {
@@ -162,6 +163,9 @@ class ScreenLayoutController extends Controller
     {
         try {
             $this->layoutService->deleteLayout($layout);
+            
+            // Reset auto-increment ID to 0
+            DB::statement('ALTER TABLE screen_layouts AUTO_INCREMENT = 0');
             
             return response()->json([
                 'success' => true,

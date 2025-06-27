@@ -64,6 +64,7 @@ class QueueTest extends TestCase
         $queueData = [
             'name' => 'Test Food Queue',
             'type' => 'regular',
+            'max_quantity' => 100,
             'status' => 'active'
         ];
 
@@ -92,6 +93,7 @@ class QueueTest extends TestCase
                 'data' => [
                     'name' => 'Test Food Queue',
                     'type' => 'regular',
+                    'max_quantity' => 100,
                     'status' => 'active',
                     'current_number' => 0
                 ]
@@ -100,6 +102,7 @@ class QueueTest extends TestCase
         $this->assertDatabaseHas('queues', [
             'name' => 'Test Food Queue',
             'type' => 'regular',
+            'max_quantity' => 100,
             'status' => 'active',
             'current_number' => 0
         ]);
@@ -116,7 +119,7 @@ class QueueTest extends TestCase
 
         // Assert
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'type']);
+            ->assertJsonValidationErrors(['name', 'type', 'max_quantity']);
     }
 
     /** @test */

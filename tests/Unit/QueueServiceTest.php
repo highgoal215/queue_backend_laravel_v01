@@ -42,7 +42,6 @@ class QueueServiceTest extends TestCase
             'name' => 'Test Queue',
             'type' => 'regular',
             'max_quantity' => 100,
-            'remaining_quantity' => 50,
             'status' => 'active'
         ];
 
@@ -53,8 +52,8 @@ class QueueServiceTest extends TestCase
         $this->assertInstanceOf(Queue::class, $queue);
         $this->assertEquals('Test Queue', $queue->name);
         $this->assertEquals('regular', $queue->type);
-        $this->assertNull($queue->max_quantity); // Regular queues don't have max_quantity
-        $this->assertNull($queue->remaining_quantity); // Regular queues don't have remaining_quantity
+        $this->assertEquals(100, $queue->max_quantity); // Regular queues now have max_quantity
+        $this->assertEquals(100, $queue->remaining_quantity); // remaining_quantity is set to max_quantity
         $this->assertEquals('active', $queue->status);
         $this->assertEquals(0, $queue->current_number);
     }
@@ -143,15 +142,17 @@ class QueueServiceTest extends TestCase
         $this->assertEquals(6, $queue->fresh()->current_number);
     }
 
-    public function test_it_cannot_get_next_number_when_queue_inactive()
+    public function test_it_can_get_next_number_when_queue_inactive()
     {
         // Arrange
-        $queue = Queue::factory()->paused()->create();
+        $queue = Queue::factory()->paused()->create(['current_number' => 5]);
 
-        // Act & Assert
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('Queue is not active');
-        $this->queueService->getNextNumber($queue);
+        // Act
+        $nextNumber = $this->queueService->getNextNumber($queue);
+
+        // Assert
+        $this->assertEquals(6, $nextNumber); // Now allows getting next number even when inactive
+        $this->assertEquals(6, $queue->fresh()->current_number);
     }
 
     public function test_it_can_skip_number()

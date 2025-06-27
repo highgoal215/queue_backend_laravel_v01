@@ -11,6 +11,7 @@ use App\Services\QueueService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 
 
 class QueueController extends Controller
@@ -140,6 +141,9 @@ class QueueController extends Controller
             }
 
             $queue->delete();
+            
+            // Reset auto-increment ID to 0
+            DB::statement('ALTER TABLE queues AUTO_INCREMENT = 0');
             
             return response()->json([
                 'success' => true,

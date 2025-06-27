@@ -23,6 +23,8 @@ class QueueSeeder extends Seeder
             'status' => 'active',
             'current_number' => 5,
         ]);
+        // Set remaining_quantity to max_quantity
+        $regularQueue->update(['remaining_quantity' => $regularQueue->max_quantity]);
 
         $inventoryQueue = Queue::create([
             'name' => 'Steak Promotion',
@@ -31,6 +33,8 @@ class QueueSeeder extends Seeder
             'status' => 'active',
             'current_number' => 3,
         ]);
+        // Set remaining_quantity to max_quantity
+        $inventoryQueue->update(['remaining_quantity' => $inventoryQueue->max_quantity]);
 
         // Create sample cashiers
         $cashier1 = Cashier::create([
@@ -77,6 +81,8 @@ class QueueSeeder extends Seeder
             $entry = QueueEntry::create([
                 'queue_id' => $inventoryQueue->id,
                 'queue_number' => $i,
+                'customer_name' => 'Customer ' . ($i + 5),
+                'phone_number' => '555-000' . ($i + 5),
                 'quantity_purchased' => rand(50, 200),
                 'cashier_id' => $cashier2->id,
                 'order_status' => $i <= 2 ? 'completed' : 'queued',
@@ -92,21 +98,26 @@ class QueueSeeder extends Seeder
         }
 
         // Create a paused queue
-        Queue::create([
+        $pausedQueue = Queue::create([
             'name' => 'Technical Support',
             'type' => 'regular',
+            'max_quantity' => 500,
             'status' => 'paused',
             'current_number' => 0,
         ]);
+        // Set remaining_quantity to max_quantity
+        $pausedQueue->update(['remaining_quantity' => $pausedQueue->max_quantity]);
 
-        // Create a closed inventory queue
-        Queue::create([
+        // Create a closed inventory queue (with depleted stock)
+        $closedQueue = Queue::create([
             'name' => 'Limited Edition Sale',
             'type' => 'inventory',
             'max_quantity' => 500,
-            'remaining_quantity' => 0,
             'status' => 'closed',
             'current_number' => 25,
         ]);
+        
+        // Manually set remaining_quantity to 0 for closed queue
+        $closedQueue->update(['remaining_quantity' => 0]);
     }
 } 

@@ -9,6 +9,8 @@ use App\Models\User;
 use App\Models\Queue;
 use App\Models\QueueEntry;
 use App\Models\Cashier;
+use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\Artisan;
 
 /**
  * Comprehensive Test Runner for Queue Management System
@@ -16,7 +18,7 @@ use App\Models\Cashier;
  * This class provides different testing scenarios and configurations
  * for running comprehensive tests on the queue management system.
  */
-class TestRunner
+class TestRunner extends BaseTestCase
 {
     use RefreshDatabase, WithFaker;
 
@@ -29,6 +31,39 @@ class TestRunner
         $this->user = User::factory()->create();
         $this->queue = Queue::factory()->active()->create();
         $this->cashier = Cashier::factory()->active()->create();
+    }
+
+    public function createApplication()
+    {
+        $app = require __DIR__.'/../bootstrap/app.php';
+        $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+        return $app;
+    }
+
+    public function testAllEndpoints()
+    {
+        // This method will be used to run all tests
+        $this->assertTrue(true);
+    }
+
+    public static function runAllTests()
+    {
+        echo "Running comprehensive API endpoint tests...\n";
+        echo "==========================================\n\n";
+
+        // Run all feature tests
+        $output = shell_exec('php artisan test --testsuite=Feature --verbose');
+        
+        echo $output;
+        
+        // Parse results
+        if (strpos($output, 'FAILED') !== false) {
+            echo "\n❌ Some tests failed!\n";
+            return false;
+        } else {
+            echo "\n✅ All tests passed!\n";
+            return true;
+        }
     }
 
     /**

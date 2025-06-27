@@ -67,22 +67,28 @@ Creates a new queue entry.
 **Request Body:**
 ```json
 {
-    "queue_id": 1,
+    "queue_id": 2, // e.g., 1 = Food Queue, 2 = Coffee Queue
     "customer_name": "John Doe",
     "phone_number": "555-1234",
     "quantity_purchased": 150,
     "order_details": {
-        "items": ["Steak", "Fries"],
-        "special_instructions": "Medium rare"
+        "items": ["Latte", "Croissant"],
+        "special_instructions": "Extra hot"
     },
-    "notes": "VIP customer",
+    "notes": "Morning order",
     "cashier_id": 1,
     "order_status": "queued"
 }
 ```
 
+> **Note:**
+> - `queue_id` selects the target queue for the entry (e.g., Food, Coffee, etc.).
+> - You can retrieve available queues and their IDs using the `/queues` endpoint. For example:
+>   - `1` = Food Queue
+>   - `2` = Coffee Queue
+
 **Required Parameters:**
-- `queue_id` - ID of the queue to join
+- `queue_id` - ID of the queue to join (e.g., Food, Coffee, etc.)
 - `customer_name` - Customer's full name
 - `phone_number` - Customer's phone number
 - `quantity_purchased` - Quantity purchased (must be at least 1)

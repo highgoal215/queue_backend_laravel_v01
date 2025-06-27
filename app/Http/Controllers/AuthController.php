@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
@@ -145,5 +146,37 @@ class AuthController extends Controller
             ],
             'message' => 'User updated successfully'
         ]);
+    }
+
+    public function deleteUser(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not authenticated'
+            ], 401);
+        }
+
+        try {
+            // Delete user's tokens first
+            $user->tokens()->delete();
+            
+            // Delete the user
+            $user->delete();
+            
+            // Reset auto-increment ID to 0
+            \DB::statement('ALTER TABLE users AUTO_INCREMENT = 0');
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'User deleted successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete user: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

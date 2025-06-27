@@ -11,6 +11,7 @@ use App\Services\QueueEntryService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 
 class QueueEntryController extends Controller
 {
@@ -157,6 +158,10 @@ class QueueEntryController extends Controller
     {
         try {
             $entry->delete();
+            
+            // Reset auto-increment ID to 0
+            DB::statement('ALTER TABLE queue_entries AUTO_INCREMENT = 0');
+            
             return response()->json([
                 'success' => true,
                 'message' => 'Queue entry deleted successfully'

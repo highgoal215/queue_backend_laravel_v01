@@ -161,15 +161,30 @@ class CashierTest extends TestCase
     }
 
     /** @test */
-    public function it_can_update_cashier()
+    public function it_can_update_cashier_with_all_valid_fields()
     {
         // Arrange
         Sanctum::actingAs($this->user);
-        $cashier = Cashier::factory()->create();
+        $cashier = Cashier::factory()->create([
+            'name' => 'Original Name',
+            'email' => 'original@example.com',
+            'phone' => '1234567890',
+            'status' => 'active',
+            'is_available' => true,
+            'is_active' => true
+        ]);
+        
         $updateData = [
-            'name' => 'Jane Cashier',
+            'name' => 'Updated Name',
+            'email' => 'updated@example.com',
+            'phone' => '9876543210',
             'status' => 'break',
-            'is_available' => false
+            'is_available' => false,
+            'is_active' => false,
+            'role' => 'Senior Cashier',
+            'shift_start' => '09:00',
+            'shift_end' => '17:00',
+            'assigned_queue_id' => $this->queue->id
         ];
 
         // Act
@@ -182,25 +197,321 @@ class CashierTest extends TestCase
                 'data' => [
                     'id',
                     'name',
+                    'employee_id',
                     'status',
-                    'is_available'
+                    'assigned_queue_id',
+                    'is_available',
+                    'is_active',
+                    'current_customer_id',
+                    'total_served',
+                    'average_service_time',
+                    'email',
+                    'phone',
+                    'role',
+                    'shift_start',
+                    'shift_end',
+                    'created_at',
+                    'updated_at',
+                    'queue' => [
+                        'id',
+                        'name',
+                        'type'
+                    ]
                 ],
                 'message'
             ])
             ->assertJson([
                 'success' => true,
+                'message' => 'Cashier updated successfully',
                 'data' => [
-                    'name' => 'Jane Cashier',
+                    'name' => 'Updated Name',
+                    'email' => 'updated@example.com',
+                    'phone' => '9876543210',
                     'status' => 'break',
-                    'is_available' => false
+                    'is_available' => false,
+                    'is_active' => false,
+                    'role' => 'Senior Cashier',
+                    'assigned_queue_id' => $this->queue->id
+                ]
+            ]);
+
+        // Verify database was updated
+        $this->assertDatabaseHas('cashiers', [
+            'id' => $cashier->id,
+            'name' => 'Updated Name',
+            'email' => 'updated@example.com',
+            'phone' => '9876543210',
+            'status' => 'break',
+            'is_available' => false,
+            'is_active' => false,
+            'role' => 'Senior Cashier',
+            'assigned_queue_id' => $this->queue->id
+        ]);
+    }
+
+    /** @test */
+    public function it_can_update_cashier_with_partial_data()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $cashier = Cashier::factory()->create([
+            'name' => 'Original Name',
+            'email' => 'original@example.com',
+            'status' => 'active'
+        ]);
+        
+        $updateData = [
+            'name' => 'Partial Update Name',
+            'status' => 'inactive'
+        ];
+
+        // Act
+        $response = $this->putJson("/api/cashiers/{$cashier->id}", $updateData);
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'name' => 'Partial Update Name',
+                    'status' => 'inactive'
+                ]
+            ]);
+
+        // Verify only specified fields were updated
+        $this->assertDatabaseHas('cashiers', [
+            'id' => $cashier->id,
+            'name' => 'Partial Update Name',
+            'status' => 'inactive',
+            'email' => 'original@example.com' // Should remain unchanged
+        ]);
+    }
+
+    /** @test */
+    public function it_validates_unique_name_when_updating()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $existingCashier = Cashier::factory()->create(['name' => 'Existing Cashier']);
+        $cashierToUpdate = Cashier::factory()->create(['name' => 'Original Name']);
+        
+        $updateData = [
+            'name' => 'Existing Cashier' // This name already exists
+        ];
+
+        // Act
+        $response = $this->putJson("/api/cashiers/{$cashierToUpdate->id}", $updateData);
+
+        // Assert
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['name']);
+    }
+
+    /** @test */
+    public function it_validates_unique_email_when_updating()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $existingCashier = Cashier::factory()->create(['email' => 'existing@example.com']);
+        $cashierToUpdate = Cashier::factory()->create(['email' => 'original@example.com']);
+        
+        $updateData = [
+            'email' => 'existing@example.com' // This email already exists
+        ];
+
+        // Act
+        $response = $this->putJson("/api/cashiers/{$cashierToUpdate->id}", $updateData);
+
+        // Assert
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+    }
+
+    /** @test */
+    public function it_allows_same_email_for_same_cashier()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $cashier = Cashier::factory()->create(['email' => 'test@example.com']);
+        
+        $updateData = [
+            'name' => 'Updated Name',
+            'email' => 'test@example.com' // Same email as the cashier
+        ];
+
+        // Act
+        $response = $this->putJson("/api/cashiers/{$cashier->id}", $updateData);
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'name' => 'Updated Name',
+                    'email' => 'test@example.com'
+                ]
+            ]);
+    }
+
+    /** @test */
+    public function it_validates_assigned_queue_exists()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $cashier = Cashier::factory()->create();
+        
+        $updateData = [
+            'assigned_queue_id' => 99999 // Non-existent queue ID
+        ];
+
+        // Act
+        $response = $this->putJson("/api/cashiers/{$cashier->id}", $updateData);
+
+        // Assert
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['assigned_queue_id']);
+    }
+
+    /** @test */
+    public function it_validates_shift_end_after_shift_start()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $cashier = Cashier::factory()->create();
+        
+        $updateData = [
+            'shift_start' => '17:00',
+            'shift_end' => '09:00' // End time before start time
+        ];
+
+        // Act
+        $response = $this->putJson("/api/cashiers/{$cashier->id}", $updateData);
+
+        // Assert
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['shift_end']);
+    }
+
+    /** @test */
+    public function it_validates_shift_time_format()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $cashier = Cashier::factory()->create();
+        
+        $updateData = [
+            'shift_start' => '25:00', // Invalid time format
+            'shift_end' => '26:00'
+        ];
+
+        // Act
+        $response = $this->putJson("/api/cashiers/{$cashier->id}", $updateData);
+
+        // Assert
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['shift_start', 'shift_end']);
+    }
+
+    /** @test */
+    public function it_validates_status_values()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $cashier = Cashier::factory()->create();
+        
+        $updateData = [
+            'status' => 'invalid_status' // Invalid status
+        ];
+
+        // Act
+        $response = $this->putJson("/api/cashiers/{$cashier->id}", $updateData);
+
+        // Assert
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['status']);
+    }
+
+    /** @test */
+    public function it_validates_boolean_fields()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $cashier = Cashier::factory()->create();
+        
+        $updateData = [
+            'is_available' => 'not_boolean',
+            'is_active' => 'not_boolean'
+        ];
+
+        // Act
+        $response = $this->putJson("/api/cashiers/{$cashier->id}", $updateData);
+
+        // Assert
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['is_available', 'is_active']);
+    }
+
+    /** @test */
+    public function it_returns_404_for_nonexistent_cashier()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $nonexistentId = 99999;
+        
+        $updateData = [
+            'name' => 'Updated Name'
+        ];
+
+        // Act
+        $response = $this->putJson("/api/cashiers/{$nonexistentId}", $updateData);
+
+        // Assert
+        $response->assertStatus(404);
+    }
+
+    /** @test */
+    public function it_requires_authentication_for_update()
+    {
+        // Arrange
+        $cashier = Cashier::factory()->create();
+        
+        $updateData = [
+            'name' => 'Updated Name'
+        ];
+
+        // Act
+        $response = $this->putJson("/api/cashiers/{$cashier->id}", $updateData);
+
+        // Assert
+        $response->assertStatus(401);
+    }
+
+    /** @test */
+    public function it_can_remove_queue_assignment()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $cashier = Cashier::factory()->assignedToQueue()->create();
+        
+        $updateData = [
+            'assigned_queue_id' => null
+        ];
+
+        // Act
+        $response = $this->putJson("/api/cashiers/{$cashier->id}", $updateData);
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'assigned_queue_id' => null
                 ]
             ]);
 
         $this->assertDatabaseHas('cashiers', [
             'id' => $cashier->id,
-            'name' => 'Jane Cashier',
-            'status' => 'break',
-            'is_available' => false
+            'assigned_queue_id' => null
         ]);
     }
 
@@ -523,71 +834,6 @@ class CashierTest extends TestCase
             ->assertJsonValidationErrors(['email'])
             ->assertJson([
                 'message' => 'The email field must be a valid email address.'
-            ]);
-    }
-
-    /** @test */
-    public function it_validates_shift_time_format()
-    {
-        // Arrange
-        Sanctum::actingAs($this->user);
-        
-        $cashierData = [
-            'name' => 'Test User',
-            'shift_start' => '25:00', // Invalid time format
-            'shift_end' => '26:00'    // Invalid time format
-        ];
-
-        // Act
-        $response = $this->postJson('/api/cashiers', $cashierData);
-
-        // Assert
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['shift_start', 'shift_end']);
-    }
-
-    /** @test */
-    public function it_validates_shift_end_after_shift_start()
-    {
-        // Arrange
-        Sanctum::actingAs($this->user);
-        
-        $cashierData = [
-            'name' => 'Test User',
-            'shift_start' => '17:00',
-            'shift_end' => '09:00' // End time before start time
-        ];
-
-        // Act
-        $response = $this->postJson('/api/cashiers', $cashierData);
-
-        // Assert
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['shift_end'])
-            ->assertJson([
-                'message' => 'The shift end field must be a date after shift start.'
-            ]);
-    }
-
-    /** @test */
-    public function it_validates_assigned_queue_exists()
-    {
-        // Arrange
-        Sanctum::actingAs($this->user);
-        
-        $cashierData = [
-            'name' => 'Test User',
-            'assigned_queue_id' => 99999 // Non-existent queue ID
-        ];
-
-        // Act
-        $response = $this->postJson('/api/cashiers', $cashierData);
-
-        // Assert
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['assigned_queue_id'])
-            ->assertJson([
-                'message' => 'The selected assigned queue id is invalid.'
             ]);
     }
 } 

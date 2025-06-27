@@ -6,13 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreQueueRequest;
 use App\Http\Requests\UpdateQueueRequest;
 use App\Models\Queue;
-use App\Models\QueueEntry;
 use App\Services\QueueService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Support\Facades\Log;
 
 class QueueController extends Controller
 {
@@ -23,12 +22,12 @@ class QueueController extends Controller
         $this->queueService = $queueService;
     }
 
-   
+
     public function index(): JsonResponse
     {
         try {
             $queues = $this->queueService->getAllQueues();
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $queues,
@@ -42,12 +41,16 @@ class QueueController extends Controller
         }
     }
 
-    
+
     public function store(StoreQueueRequest $request): JsonResponse
     {
         try {
             $queue = $this->queueService->createQueue($request->validated());
-            
+
+            Log::info(message: 'Queue', context: [
+                'data' => $queue
+            ]);
+
             return response()->json([
                 'success' => true,
                 'data' => $queue,
@@ -61,7 +64,7 @@ class QueueController extends Controller
         }
     }
 
-  
+
     public function show(Queue $queue): JsonResponse
     {
         try {
@@ -107,12 +110,12 @@ class QueueController extends Controller
         }
     }
 
-  
+
     public function update(UpdateQueueRequest $request, Queue $queue): JsonResponse
     {
         try {
             $queue->update($request->validated());
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $queue,
@@ -126,13 +129,12 @@ class QueueController extends Controller
         }
     }
 
-  
     public function destroy(Queue $queue): JsonResponse
     {
         try {
             // Check if queue has active entries
             $activeEntries = $queue->entries()->whereIn('order_status', ['queued', 'kitchen', 'preparing'])->count();
-            
+
             if ($activeEntries > 0) {
                 return response()->json([
                     'success' => false,
@@ -141,10 +143,10 @@ class QueueController extends Controller
             }
 
             $queue->delete();
-            
+
             // Reset auto-increment ID to 0
             DB::statement('ALTER TABLE queues AUTO_INCREMENT = 0');
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Queue deleted successfully'
@@ -157,7 +159,6 @@ class QueueController extends Controller
         }
     }
 
-  
     public function reset(Queue $queue): JsonResponse
     {
         try {
@@ -179,12 +180,11 @@ class QueueController extends Controller
         }
     }
 
-
     public function pause(Queue $queue): JsonResponse
     {
         try {
             $updatedQueue = $this->queueService->pauseQueue($queue);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $updatedQueue,
@@ -202,7 +202,7 @@ class QueueController extends Controller
     {
         try {
             $updatedQueue = $this->queueService->resumeQueue($queue);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $updatedQueue,
@@ -216,18 +216,17 @@ class QueueController extends Controller
         }
     }
 
-   
     public function callNext(Queue $queue): JsonResponse
     {
         try {
             $nextNumber = $this->queueService->getNextNumber($queue);
-            
+
             // Get the entry that was just called
             $calledEntry = $queue->entries()
                 ->where('queue_number', $nextNumber)
                 ->where('order_status', 'serving')
                 ->first();
-            
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -272,7 +271,7 @@ class QueueController extends Controller
     {
         try {
             $entries = $this->queueService->getQueueEntries($queue, $request->all());
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $entries->items(),
@@ -291,12 +290,11 @@ class QueueController extends Controller
         }
     }
 
-    
     public function close(Queue $queue): JsonResponse
     {
         try {
             $updatedQueue = $this->queueService->closeQueue($queue);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $updatedQueue,
@@ -310,13 +308,11 @@ class QueueController extends Controller
         }
     }
 
-   
-
     public function skip(Queue $queue): JsonResponse
     {
         try {
             $updatedQueue = $this->queueService->skipNumber($queue);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $updatedQueue,
@@ -330,12 +326,11 @@ class QueueController extends Controller
         }
     }
 
-
     public function recall(Queue $queue): JsonResponse
     {
         try {
             $updatedQueue = $this->queueService->recallNumber($queue);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $updatedQueue,
@@ -349,7 +344,6 @@ class QueueController extends Controller
         }
     }
 
- 
     public function adjustStock(Request $request, Queue $queue): JsonResponse
     {
         try {
@@ -366,7 +360,7 @@ class QueueController extends Controller
             }
 
             $updatedQueue = $this->queueService->adjustStock($queue, $request->new_quantity);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $updatedQueue,
@@ -379,7 +373,7 @@ class QueueController extends Controller
                     'message' => 'Stock adjustment only available for inventory queues'
                 ], 400);
             }
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to adjust stock: ' . $e->getMessage()
@@ -387,12 +381,11 @@ class QueueController extends Controller
         }
     }
 
-
     public function undoLastEntry(Queue $queue): JsonResponse
     {
         try {
             $result = $this->queueService->undoLastEntry($queue);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $queue->fresh(),
@@ -406,25 +399,24 @@ class QueueController extends Controller
         }
     }
 
-   
     public function analytics(Queue $queue): JsonResponse
     {
         try {
             $stats = $this->queueService->getQueueStats($queue);
             $stats['completed_count'] = $stats['completed_entries'] ?? 0;
             $stats['cancelled_count'] = $queue->entries()->where('order_status', 'cancelled')->count();
-            
+
             // Calculate completion rate
             $totalEntries = $stats['total_entries'] ?? 0;
             $completedCount = $stats['completed_count'] ?? 0;
             $stats['completion_rate'] = $totalEntries > 0 ? round(($completedCount / $totalEntries) * 100, 2) : 0;
-            
+
             // Add average wait time
             $stats['average_wait_time'] = $queue->entries()->whereNotNull('estimated_wait_time')->avg('estimated_wait_time') ?? 0;
-            
+
             // Add peak hours (placeholder)
             $stats['peak_hours'] = [];
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $stats,

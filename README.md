@@ -59,3 +59,97 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+# Queue Management System
+
+A comprehensive Laravel-based queue management system with support for regular and inventory-based queues, cashier management, customer tracking, and real-time display features.
+
+## Features
+
+- **Dual Queue Types**: Support for both regular and inventory-based queues
+- **Cashier Management**: Assign and manage cashiers for queues
+- **Customer Tracking**: QR code-based customer tracking with real-time updates
+- **Screen Layouts**: Customizable TV display layouts with widgets
+- **Real-time Updates**: Live queue status and customer position updates
+- **Inventory Management**: Stock tracking for inventory-based queues
+- **ID Reset**: Auto-increment IDs reset to 0 after record deletion
+
+## ID Reset Functionality
+
+The system automatically resets auto-increment IDs to 0 after deleting records from all major tables:
+
+- **Users**: `users` table
+- **Queues**: `queues` table  
+- **Queue Entries**: `queue_entries` table
+- **Cashiers**: `cashiers` table
+- **Screen Layouts**: `screen_layouts` table
+
+This ensures that new records always start with ID 1 after deletion, maintaining clean and predictable ID sequences.
+
+## API Endpoints
+
+### Authentication
+- `POST /api/register` - User registration
+- `POST /api/login` - User login
+- `GET /api/user` - Get authenticated user
+- `PUT /api/user` - Update user profile
+- `DELETE /api/user` - Delete user account
+
+### Queues
+- `GET /api/queues` - List all queues
+- `POST /api/queues` - Create a new queue
+- `GET /api/queues/{id}` - Get queue details
+- `PUT /api/queues/{id}` - Update queue
+- `DELETE /api/queues/{id}` - Delete queue (resets ID to 0)
+
+### Queue Entries
+- `GET /api/entries` - List all entries
+- `POST /api/entries` - Create a new entry
+- `GET /api/entries/{id}` - Get entry details
+- `PUT /api/entries/{id}` - Update entry
+- `DELETE /api/entries/{id}` - Delete entry (resets ID to 0)
+
+### Cashiers
+- `GET /api/cashiers` - List all cashiers
+- `POST /api/cashiers` - Create a new cashier
+- `GET /api/cashiers/{id}` - Get cashier details
+- `PUT /api/cashiers/{id}` - Update cashier
+- `DELETE /api/cashiers/{id}` - Delete cashier (resets ID to 0)
+
+### Screen Layouts
+- `GET /api/layouts` - List all layouts
+- `POST /api/layouts` - Create a new layout
+- `GET /api/layouts/{id}` - Get layout details
+- `PUT /api/layouts/{id}` - Update layout
+- `DELETE /api/layouts/{id}` - Delete layout (resets ID to 0)
+
+## Installation
+
+1. Clone the repository
+2. Install dependencies: `composer install`
+3. Copy `.env.example` to `.env` and configure your database
+4. Run migrations: `php artisan migrate`
+5. Seed the database: `php artisan db:seed`
+6. Start the server: `php artisan serve`
+
+## Testing
+
+Run the comprehensive test suite:
+```bash
+php artisan test
+```
+
+Test the ID reset functionality:
+```bash
+php test_id_reset_demo.php
+```
+
+## Documentation
+
+- [Queue API Documentation](QUEUE_API_DOCUMENTATION.md)
+- [Queue Entry API Documentation](QUEUE_ENTRY_API_DOCUMENTATION.md)
+- [Cashier API Documentation](CASHIER_API_DOCUMENTATION.md)
+- [Customer Tracking API Documentation](CUSTOMER_TRACKING_API_DOCUMENTATION.md)
+- [Screen Layout API Documentation](SCREEN_LAYOUT_API_DOCUMENTATION.md)
+- [Widget API Documentation](WIDGET_API_DOCUMENTATION.md)
+- [Testing Guide](TESTING_GUIDE.md)

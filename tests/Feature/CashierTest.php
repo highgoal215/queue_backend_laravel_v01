@@ -536,6 +536,74 @@ class CashierTest extends TestCase
     }
 
     /** @test */
+    public function it_cannot_delete_cashier_with_active_entries()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $cashier = Cashier::factory()->create();
+        $queue = Queue::factory()->create();
+        
+        // Create active entries for this cashier
+        QueueEntry::factory()->create([
+            'queue_id' => $queue->id,
+            'cashier_id' => $cashier->id,
+            'order_status' => 'queued'
+        ]);
+        
+        QueueEntry::factory()->create([
+            'queue_id' => $queue->id,
+            'cashier_id' => $cashier->id,
+            'order_status' => 'preparing'
+        ]);
+
+        // Act
+        $response = $this->deleteJson("/api/cashiers/{$cashier->id}");
+
+        // Assert
+        $response->assertStatus(500)
+            ->assertJson([
+                'success' => false,
+                'message' => 'Failed to delete cashier: Cannot delete cashier with active entries'
+            ]);
+
+        $this->assertDatabaseHas('cashiers', ['id' => $cashier->id]);
+    }
+
+    /** @test */
+    public function it_can_delete_cashier_with_completed_entries()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $cashier = Cashier::factory()->create();
+        $queue = Queue::factory()->create();
+        
+        // Create completed entries for this cashier
+        QueueEntry::factory()->create([
+            'queue_id' => $queue->id,
+            'cashier_id' => $cashier->id,
+            'order_status' => 'completed'
+        ]);
+        
+        QueueEntry::factory()->create([
+            'queue_id' => $queue->id,
+            'cashier_id' => $cashier->id,
+            'order_status' => 'cancelled'
+        ]);
+
+        // Act
+        $response = $this->deleteJson("/api/cashiers/{$cashier->id}");
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'message' => 'Cashier deleted successfully'
+            ]);
+
+        $this->assertDatabaseMissing('cashiers', ['id' => $cashier->id]);
+    }
+
+    /** @test */
     public function it_can_assign_cashier_to_queue()
     {
         // Arrange

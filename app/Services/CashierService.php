@@ -104,11 +104,8 @@ class CashierService
 
             $cashier->delete();
             
-            // Reset auto-increment ID to 1 if no cashiers exist
-            $remainingCashiers = Cashier::count();
-            if ($remainingCashiers === 0) {
-                DB::statement('ALTER TABLE cashiers AUTO_INCREMENT = 1');
-            }
+            // Reset auto-increment ID to 0
+            DB::statement('ALTER TABLE cashiers AUTO_INCREMENT = 0');
             
             Log::info('Cashier deleted', [
                 'cashier_id' => $cashier->id,

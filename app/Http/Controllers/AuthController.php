@@ -7,25 +7,32 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
     public function register(Request $request)
     {
+        Log::info(message: 'ccc', context: [
+            "username" => $request->name,
+            "email" => $request->email,
+            "password" => $request->password
+        ]);
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 422);
-        }
+        // if ($validator->fails()) {
+        //     return response()->json([
+        //         'success' => false,
+        //         'message' => 'Validation failed',
+        //         'errors' => $validator->errors()
+        //     ], 422);
+        // }
 
         $user = User::create([
             'name' => $request->name,
@@ -34,7 +41,7 @@ class AuthController extends Controller
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
-        
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -89,7 +96,7 @@ class AuthController extends Controller
                 'message' => 'User not authenticated'
             ], 401);
         }
-        
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -161,13 +168,13 @@ class AuthController extends Controller
         try {
             // Delete user's tokens first
             $user->tokens()->delete();
-            
+
             // Delete the user
             $user->delete();
-            
+
             // Reset auto-increment ID to 0
-            \DB::statement('ALTER TABLE users AUTO_INCREMENT = 0');
-            
+            DB::statement('ALTER TABLE users AUTO_INCREMENT = 0');
+
             return response()->json([
                 'success' => true,
                 'message' => 'User deleted successfully'

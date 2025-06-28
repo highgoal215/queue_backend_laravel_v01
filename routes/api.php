@@ -10,6 +10,10 @@ use App\Http\Controllers\API\CustomerTrackingController;
 use App\Http\Controllers\API\ScreenLayoutController;
 use App\Http\Controllers\API\WidgetController;
 
+Route::options('/{any}', function () {
+    return response()->json([], 204);
+})->where('any', '.*');
+
 Route::get('/', function () {
     return response()->json([
         'message' => 'Hello World'
@@ -33,23 +37,23 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{queue}', [QueueController::class, 'show']);
         Route::put('/{queue}', [QueueController::class, 'update']);
         Route::delete('/{queue}', [QueueController::class, 'destroy']);
-        
+
         // Queue control operations
         Route::post('/{queue}/reset', [QueueController::class, 'reset']);
         Route::post('/{queue}/pause', [QueueController::class, 'pause']);
         Route::post('/{queue}/resume', [QueueController::class, 'resume']);
         Route::post('/{queue}/close', [QueueController::class, 'close']);
         Route::get('/{queue}/status', [QueueController::class, 'status']);
-        
+
         // Queue number operations
         Route::post('/{queue}/call-next', [QueueController::class, 'callNext']);
         Route::post('/{queue}/skip', [QueueController::class, 'skip']);
         Route::post('/{queue}/recall', [QueueController::class, 'recall']);
-        
+
         // Inventory management (for inventory queues)
         Route::post('/{queue}/adjust-stock', [QueueController::class, 'adjustStock']);
         Route::post('/{queue}/undo-last-entry', [QueueController::class, 'undoLastEntry']);
-        
+
         // Queue data
         Route::get('/{queue}/entries', [QueueController::class, 'entries']);
         Route::get('/{queue}/analytics', [QueueController::class, 'analytics']);
@@ -63,7 +67,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/stats', [QueueEntryController::class, 'getStats']);
         Route::get('/search', [QueueEntryController::class, 'search']);
         Route::post('/bulk-update-status', [QueueEntryController::class, 'bulkUpdateStatus']);
-        
+
         // Entry-specific operations
         Route::get('/{entry}', [QueueEntryController::class, 'show']);
         Route::put('/{entry}', [QueueEntryController::class, 'update']);
@@ -71,10 +75,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/{entry}/status', [QueueEntryController::class, 'updateStatus']);
         Route::post('/{entry}/cancel', [QueueEntryController::class, 'cancel']);
         Route::get('/{entry}/timeline', [QueueEntryController::class, 'getTimeline']);
-        
+
         // Status-based operations
         Route::get('/status/{status}', [QueueEntryController::class, 'getByStatus']);
-        
+
         // Cashier-based operations
         Route::get('/cashier/{cashier_id}', [QueueEntryController::class, 'getByCashier']);
     });

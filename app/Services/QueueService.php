@@ -41,9 +41,9 @@ class QueueService
         // }
 
         $nextNumber = $queue->current_number + 1;
-        
+
         $queue->update(['current_number' => $nextNumber]);
-        
+
         // Broadcast queue update
         event(new QueueUpdated($queue));
 
@@ -56,7 +56,7 @@ class QueueService
     public function resetQueue(Queue $queue): Queue
     {
         $queue->update(['current_number' => 0]);
-        
+
         // Broadcast queue update
         event(new QueueUpdated($queue));
 
@@ -69,7 +69,7 @@ class QueueService
     public function pauseQueue(Queue $queue): Queue
     {
         $queue->update(['status' => 'paused']);
-        
+
         // Broadcast queue update
         event(new QueueUpdated($queue));
 
@@ -82,7 +82,7 @@ class QueueService
     public function resumeQueue(Queue $queue): Queue
     {
         $queue->update(['status' => 'active']);
-        
+
         // Broadcast queue update
         event(new QueueUpdated($queue));
 
@@ -95,7 +95,7 @@ class QueueService
     public function closeQueue(Queue $queue): Queue
     {
         $queue->update(['status' => 'closed']);
-        
+
         // Broadcast queue update
         event(new QueueUpdated($queue));
 
@@ -161,13 +161,13 @@ class QueueService
     public function updateEntryStatus(QueueEntry $entry, string $status): QueueEntry
     {
         $validStatuses = ['queued', 'kitchen', 'preparing', 'serving', 'completed', 'cancelled'];
-        
+
         if (!in_array($status, $validStatuses)) {
             throw new \Exception('Invalid status');
         }
 
         $entry->update(['order_status' => $status]);
-        
+
         // Broadcast queue update
         event(new QueueUpdated($entry->queue));
 
@@ -185,7 +185,7 @@ class QueueService
 
         // Just increment the number without creating an entry
         $queue->update(['current_number' => $queue->current_number + 1]);
-        
+
         // Broadcast queue update
         event(new QueueUpdated($queue));
 
@@ -268,7 +268,7 @@ class QueueService
             }
 
             DB::commit();
-            
+
             // Broadcast queue update
             event(new QueueUpdated($queue));
 
@@ -328,7 +328,7 @@ class QueueService
         }
 
         $perPage = $filters['per_page'] ?? 15;
-        
+
         return $query->paginate($perPage);
     }
 
@@ -339,7 +339,7 @@ class QueueService
     {
         return Queue::with(['entries' => function ($query) {
             $query->whereIn('order_status', ['queued', 'kitchen', 'preparing'])
-                  ->orderBy('queue_number', 'asc');
+                ->orderBy('queue_number', 'asc');
         }])->get();
     }
 }

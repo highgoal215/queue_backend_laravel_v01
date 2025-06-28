@@ -833,7 +833,7 @@ class CashierTest extends TestCase
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['email'])
             ->assertJson([
-                'message' => 'The email field must be a valid email address.'
+                'message' => 'Please provide a valid email address.'
             ]);
     }
 } 

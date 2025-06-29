@@ -12,6 +12,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+// use Log;
+use Illuminate\Support\Facades\Log;
 
 class QueueEntryController extends Controller
 {
@@ -103,17 +105,15 @@ class QueueEntryController extends Controller
      */
     public function store(StoreQueueEntryRequest $request): JsonResponse
     {
+       Log::info(message: '-------->');
         try {
             $data = $request->validated();
-            if (isset($data['order_details']) && is_string($data['order_details'])) {
-                $decoded = json_decode($data['order_details'], true);
-                if (json_last_error() === JSON_ERROR_NONE) {
-                    $data['order_details'] = $decoded;
-                }
-            }
+            
+            // Handle order_details as string (no JSON decoding needed)
+            // The order_details will be stored as-is since it's now validated as string
             
             $entry = $this->queueEntryService->createEntry($data);
-            
+            Log::info('data--------->'. $entry->id);
             return response()->json([
                 'success' => true,
                 'data' => $entry,

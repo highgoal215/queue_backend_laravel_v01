@@ -27,14 +27,31 @@ Route::get('/', function () {
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
+// Test endpoint to verify authentication
+Route::get('/test-auth', function () {
+    return response()->json([
+        'message' => 'Public endpoint works',
+        'timestamp' => now()
+    ]);
+});
+
 // Protected routes (require authentication)
 Route::middleware(['auth:sanctum'])->group(function () {
+    // Test protected endpoint
+    Route::get('/test-protected', function () {
+        return response()->json([
+            'message' => 'Protected endpoint works',
+            'user' => auth()->user(),
+            'timestamp' => now()
+        ]);
+    });
+
     Route::get('/user', [AuthController::class, 'getUser']);
     Route::put('/user', [AuthController::class, 'updateUser']);
     Route::delete('/user', [AuthController::class, 'deleteUser']);
 
-    // Queues - Complete CRUD and management operations
-    Route::prefix('queues')->group(function () {
+      // Queues - Complete CRUD and management operations
+      Route::prefix('queues')->group(function () {
         Route::get('/', [QueueController::class, 'index']);
         Route::post('/', [QueueController::class, 'store']);
         Route::get('/stats', [QueueController::class, 'getStats']);
@@ -46,6 +63,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/{queue}/reset', [QueueController::class, 'resetQueue']);
         Route::post('/{queue}/next', [QueueController::class, 'callNext']);
         Route::post('/{queue}/recall', [QueueController::class, 'recallCurrent']);
+        Route::post('/{queue}/skip', [QueueController::class, 'skip']);
+        Route::post('/{queue}/adjust-stock', [QueueController::class, 'adjustStock']);
+        Route::post('/{queue}/undo-last-entry', [QueueController::class, 'undoLastEntry']);
         Route::get('/{queue}/entries', [QueueController::class, 'getEntries']);
         Route::get('/{queue}/active-entries', [QueueController::class, 'getActiveEntries']);
         Route::get('/{queue}/completed-entries', [QueueController::class, 'getCompletedEntries']);
@@ -130,3 +150,4 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/templates', [WidgetController::class, 'getTemplates']);
     });
 });
+ 

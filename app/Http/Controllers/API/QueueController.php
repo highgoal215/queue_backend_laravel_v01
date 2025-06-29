@@ -44,10 +44,17 @@ class QueueController extends Controller
 
     public function store(StoreQueueRequest $request): JsonResponse
     {
+        // Debug logging to see if function is called
+        Log::info('Queue store function called', [
+            'request_data' => $request->all(),
+            'validated_data' => $request->validated(),
+            'user' => $request->user()
+        ]);
+
         try {
             $queue = $this->queueService->createQueue($request->validated());
 
-            Log::info(message: 'Queue', context: [
+            Log::info(message: 'Queue-----------<>', context: [
                 'data' => $queue
             ]);
 
@@ -57,6 +64,11 @@ class QueueController extends Controller
                 'message' => 'Queue created successfully'
             ], 201);
         } catch (\Exception $e) {
+            Log::error('Queue store error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create queue: ' . $e->getMessage()

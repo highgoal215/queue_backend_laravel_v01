@@ -27,22 +27,37 @@ class QueueEntryService
         DB::beginTransaction();
         try {
             $queue = Queue::findOrFail($data['queue_id']);
-
+            
+            Log::info('Creating queue entry', [
+                'queue_id' => $queue->id,
+                'queue_type' => $queue->type,
+                'data' => $data,
+            ]);
+            
             // Check if queue is active
             if ($queue->status !== 'active') {
                 throw new \Exception('Queue is not active');
             }
 
-            // For both queue types, validate quantity
-            $requestedQuantity = $data['quantity_purchased'] ?? 0;
-            if ($requestedQuantity <= 0) {
-                throw new \Exception('Quantity purchased is required');
-            }
-            if ($requestedQuantity > $queue->remaining_quantity) {
-                throw new \Exception('Requested quantity exceeds remaining stock');
-            }
-            if ($queue->remaining_quantity <= 0) {
-                throw new \Exception('Stock is depleted');
+            // Handle quantity validation based on queue type
+            if ($queue->type === 'inventory') {
+                // For inventory queues, validate quantity
+                $requestedQuantity = $data['quantity_purchased'] ?? 0;
+                if ($requestedQuantity <= 0) {
+                    throw new \Exception('Quantity purchased is required for inventory queues');
+                }
+                if ($requestedQuantity > $queue->remaining_quantity) {
+                    throw new \Exception('Requested quantity exceeds remaining stock');
+                }
+                if ($queue->remaining_quantity <= 0) {
+                    throw new \Exception('Stock is depleted');
+                }
+            } else {
+                // For regular queues, quantity is optional but if provided should be valid
+                $requestedQuantity = $data['quantity_purchased'] ?? null;
+                if ($requestedQuantity !== null && $requestedQuantity <= 0) {
+                    throw new \Exception('Quantity purchased must be greater than 0 if provided');
+                }
             }
 
             // Get next queue number
@@ -55,24 +70,29 @@ class QueueEntryService
                 'phone_number' => $data['phone_number'] ?? null,
                 'order_details' => $data['order_details'] ?? null,
                 'queue_number' => $nextNumber,
-                'quantity_purchased' => $data['quantity_purchased'],
+                'quantity_purchased' => $data['quantity_purchased'] ?? null,
                 'estimated_wait_time' => $data['estimated_wait_time'] ?? null,
                 'notes' => $data['notes'] ?? null,
                 'cashier_id' => $data['cashier_id'] ?? null,
                 'order_status' => $data['order_status'] ?? 'queued',
             ]);
-
+   Log::info('Cashier created', [
+                'queue_id' => $queue->id,
+                'customer name' => $queue->name
+            ]);
             // Update queue current number
-            $queue->update(['current_number' => $nextNumber]);
+            $queue->update(attributes: ['current_number' => $nextNumber]);
 
-            // Update remaining quantity for both queue types
-            $newRemaining = $queue->remaining_quantity - $data['quantity_purchased'];
-            $queue->update(['remaining_quantity' => $newRemaining]);
+            // Update remaining quantity only for inventory queues
+            if ($queue->type === 'inventory' && isset($data['quantity_purchased'])) {
+                $newRemaining = $queue->remaining_quantity - $data['quantity_purchased'];
+                $queue->update(['remaining_quantity' => $newRemaining]);
 
-            // Check if stock is depleted
-            if ($newRemaining <= 0) {
-                $queue->update(['status' => 'closed']);
-                event(new \App\Events\StockDepleted($queue));
+                // Check if stock is depleted
+                if ($newRemaining <= 0) {
+                    $queue->update(['status' => 'closed']);
+                    event(new \App\Events\StockDepleted($queue));
+                }
             }
 
             // Generate QR code for tracking

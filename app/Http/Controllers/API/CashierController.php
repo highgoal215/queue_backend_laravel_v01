@@ -10,6 +10,7 @@ use App\Services\CashierService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
+use Log;
 
 class CashierController extends Controller
 {
@@ -56,6 +57,7 @@ class CashierController extends Controller
      */
     public function store(StoreCashierRequest $request): JsonResponse
     {
+        Log::info('-------------<>create');
         try {
             $cashier = $this->cashierService->createCashier($request->validated());
 

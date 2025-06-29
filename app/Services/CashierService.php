@@ -25,12 +25,27 @@ class CashierService
             $data['total_served'] = $data['total_served'] ?? 0;
             $data['average_service_time'] = $data['average_service_time'] ?? 0;
 
-            // Convert time strings to proper format if provided
-            if (isset($data['shift_start']) && is_string($data['shift_start'])) {
-                $data['shift_start'] = \Carbon\Carbon::createFromFormat('H:i', $data['shift_start']);
+            // Convert time strings to proper format if provided and not null
+            if (isset($data['shift_start']) && is_string($data['shift_start']) && !empty($data['shift_start'])) {
+                try {
+                    $data['shift_start'] = \Carbon\Carbon::createFromFormat('H:i', $data['shift_start']);
+                } catch (\Exception $e) {
+                    // If time format is invalid, set to null
+                    $data['shift_start'] = null;
+                }
+            } else {
+                $data['shift_start'] = null;
             }
-            if (isset($data['shift_end']) && is_string($data['shift_end'])) {
-                $data['shift_end'] = \Carbon\Carbon::createFromFormat('H:i', $data['shift_end']);
+            
+            if (isset($data['shift_end']) && is_string($data['shift_end']) && !empty($data['shift_end'])) {
+                try {
+                    $data['shift_end'] = \Carbon\Carbon::createFromFormat('H:i', $data['shift_end']);
+                } catch (\Exception $e) {
+                    // If time format is invalid, set to null
+                    $data['shift_end'] = null;
+                }
+            } else {
+                $data['shift_end'] = null;
             }
 
             $cashier = Cashier::create($data);
@@ -59,12 +74,23 @@ class CashierService
     {
         DB::beginTransaction();
         try {
-            // Convert time strings to proper format if provided
-            if (isset($data['shift_start']) && is_string($data['shift_start'])) {
-                $data['shift_start'] = \Carbon\Carbon::createFromFormat('H:i', $data['shift_start']);
+            // Convert time strings to proper format if provided and not null
+            if (isset($data['shift_start']) && is_string($data['shift_start']) && !empty($data['shift_start'])) {
+                try {
+                    $data['shift_start'] = \Carbon\Carbon::createFromFormat('H:i', $data['shift_start']);
+                } catch (\Exception $e) {
+                    // If time format is invalid, set to null
+                    $data['shift_start'] = null;
+                }
             }
-            if (isset($data['shift_end']) && is_string($data['shift_end'])) {
-                $data['shift_end'] = \Carbon\Carbon::createFromFormat('H:i', $data['shift_end']);
+            
+            if (isset($data['shift_end']) && is_string($data['shift_end']) && !empty($data['shift_end'])) {
+                try {
+                    $data['shift_end'] = \Carbon\Carbon::createFromFormat('H:i', $data['shift_end']);
+                } catch (\Exception $e) {
+                    // If time format is invalid, set to null
+                    $data['shift_end'] = null;
+                }
             }
 
             $cashier->update($data);
@@ -103,9 +129,6 @@ class CashierService
             }
 
             $cashier->delete();
-            
-            // Reset auto-increment ID to 0
-            DB::statement('ALTER TABLE cashiers AUTO_INCREMENT = 0');
             
             Log::info('Cashier deleted', [
                 'cashier_id' => $cashier->id,
@@ -190,9 +213,36 @@ class CashierService
     }
 
     /**
-     * Get cashiers with filters
+     * Get cashiers with filters and pagination
      */
-    public function getCashiers(array $filters = []): Collection
+    public function getCashiers(array $filters = [], int $perPage = 15): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    {
+        $query = Cashier::with('queue');
+
+        // Apply filters
+        if (isset($filters['is_active'])) {
+            $query->where('is_active', $filters['is_active']);
+        }
+        if (isset($filters['assigned_queue_id'])) {
+            $query->where('assigned_queue_id', $filters['assigned_queue_id']);
+        }
+        if (isset($filters['role'])) {
+            $query->where('role', $filters['role']);
+        }
+        if (isset($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+        if (isset($filters['is_available'])) {
+            $query->where('is_available', $filters['is_available']);
+        }
+
+        return $query->orderBy('name')->paginate($perPage);
+    }
+
+    /**
+     * Get cashiers with filters (non-paginated for backward compatibility)
+     */
+    public function getCashiersCollection(array $filters = []): Collection
     {
         $query = Cashier::with('queue');
 
@@ -214,6 +264,36 @@ class CashierService
         }
 
         return $query->orderBy('name')->get();
+    }
+
+    /**
+     * Get paginated detailed cashier information
+     */
+    public function getPaginatedDetailedInfo(array $filters = [], int $perPage = 10): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    {
+        $query = Cashier::with(['queue', 'queue.entries' => function ($query) {
+            $query->where('created_at', '>=', now()->subDays(7))
+                  ->orderBy('created_at', 'desc');
+        }]);
+
+        // Apply filters
+        if (isset($filters['is_active'])) {
+            $query->where('is_active', $filters['is_active']);
+        }
+        if (isset($filters['assigned_queue_id'])) {
+            $query->where('assigned_queue_id', $filters['assigned_queue_id']);
+        }
+        if (isset($filters['role'])) {
+            $query->where('role', $filters['role']);
+        }
+        if (isset($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+        if (isset($filters['is_available'])) {
+            $query->where('is_available', $filters['is_available']);
+        }
+
+        return $query->orderBy('name')->paginate($perPage);
     }
 
     /**

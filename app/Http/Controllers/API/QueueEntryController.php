@@ -29,12 +29,40 @@ class QueueEntryController extends Controller
     {
         try {
             $filters = $request->only(['status', 'cashier_id', 'date', 'queue_id']);
+            $perPage = $request->input('per_page', 15);
             
             if (isset($filters['queue_id'])) {
                 $queue = Queue::findOrFail($filters['queue_id']);
                 $entries = $this->queueEntryService->getEntriesByQueue($queue, $filters);
+                
+                // If entries is a collection, paginate it manually
+                if ($entries instanceof \Illuminate\Database\Eloquent\Collection) {
+                    $page = $request->input('page', 1);
+                    $offset = ($page - 1) * $perPage;
+                    $paginatedEntries = $entries->slice($offset, $perPage);
+                    
+                    return response()->json([
+                        'success' => true,
+                        'data' => $paginatedEntries->values(),
+                        'pagination' => [
+                            'current_page' => $page,
+                            'last_page' => ceil($entries->count() / $perPage),
+                            'per_page' => $perPage,
+                            'total' => $entries->count(),
+                            'from' => $offset + 1,
+                            'to' => min($offset + $perPage, $entries->count()),
+                        ],
+                        'message' => 'Queue entries retrieved successfully'
+                    ]);
+                }
+                
+                return response()->json([
+                    'success' => true,
+                    'data' => $entries,
+                    'message' => 'Queue entries retrieved successfully'
+                ]);
             } else {
-                $entries = QueueEntry::with(['queue', 'cashier', 'tracking'])
+                $query = QueueEntry::with(['queue', 'cashier', 'tracking'])
                     ->when(isset($filters['status']), function ($query) use ($filters) {
                         return $query->where('order_status', $filters['status']);
                     })
@@ -44,15 +72,24 @@ class QueueEntryController extends Controller
                     ->when(isset($filters['date']), function ($query) use ($filters) {
                         return $query->whereDate('created_at', $filters['date']);
                     })
-                    ->orderBy('created_at', 'desc')
-                    ->get();
+                    ->orderBy('created_at', 'desc');
+                
+                $entries = $query->paginate($perPage);
+                
+                return response()->json([
+                    'success' => true,
+                    'data' => $entries->items(),
+                    'pagination' => [
+                        'current_page' => $entries->currentPage(),
+                        'last_page' => $entries->lastPage(),
+                        'per_page' => $entries->perPage(),
+                        'total' => $entries->total(),
+                        'from' => $entries->firstItem(),
+                        'to' => $entries->lastItem(),
+                    ],
+                    'message' => 'Queue entries retrieved successfully'
+                ]);
             }
-            
-            return response()->json([
-                'success' => true,
-                'data' => $entries,
-                'message' => 'Queue entries retrieved successfully'
-            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -449,8 +486,9 @@ class QueueEntryController extends Controller
         try {
             $query = $request->input('q', $request->input('query'));
             $filters = $request->only(['status', 'queue_id', 'cashier_id', 'date']);
+            $perPage = $request->input('per_page', 15);
 
-            $entries = QueueEntry::with(['queue', 'cashier', 'tracking'])
+            $queryBuilder = QueueEntry::with(['queue', 'cashier', 'tracking'])
                 ->when($query, function ($q) use ($query) {
                     return $q->where('customer_name', 'like', "%{$query}%");
                 })
@@ -466,12 +504,23 @@ class QueueEntryController extends Controller
                 ->when(isset($filters['date']), function ($q) use ($filters) {
                     return $q->whereDate('created_at', $filters['date']);
                 })
-                ->orderBy('created_at', 'desc')
-                ->get();
+                ->orderBy('created_at', 'desc');
+
+            $entries = $queryBuilder->paginate($perPage);
 
             return response()->json([
                 'success' => true,
-                'data' => $entries,
+                'data' => $entries->items(),
+                'pagination' => [
+                    'current_page' => $entries->currentPage(),
+                    'last_page' => $entries->lastPage(),
+                    'per_page' => $entries->perPage(),
+                    'total' => $entries->total(),
+                    'from' => $entries->firstItem(),
+                    'to' => $entries->lastItem(),
+                ],
+                'search_query' => $query,
+                'filters_applied' => $filters,
                 'message' => 'Search completed successfully'
             ]);
         } catch (\Exception $e) {
@@ -489,6 +538,7 @@ class QueueEntryController extends Controller
     {
         try {
             $filters = $request->only(['status', 'cashier_id', 'date', 'queue_id', 'search']);
+            $perPage = $request->input('per_page', 15);
             
             $query = QueueEntry::with(['queue', 'cashier'])
                 ->select([
@@ -527,10 +577,10 @@ class QueueEntryController extends Controller
                 });
             }
 
-            $entries = $query->orderBy('created_at', 'desc')->get();
+            $entries = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-            // Transform data to match requested format
-            $transformedEntries = $entries->map(function ($entry) {
+            // Transform data to match requested format for current page only
+            $transformedEntries = $entries->getCollection()->map(function ($entry) {
                 // Calculate wait time if not set
                 $waitTime = $entry->estimated_wait_time;
                 if (!$waitTime) {
@@ -568,8 +618,15 @@ class QueueEntryController extends Controller
                 'success' => true,
                 'data' => [
                     'entries' => $transformedEntries,
-                    'total_count' => $transformedEntries->count(),
                     'filters_applied' => $filters
+                ],
+                'pagination' => [
+                    'current_page' => $entries->currentPage(),
+                    'last_page' => $entries->lastPage(),
+                    'per_page' => $entries->perPage(),
+                    'total' => $entries->total(),
+                    'from' => $entries->firstItem(),
+                    'to' => $entries->lastItem(),
                 ],
                 'message' => 'Entries retrieved successfully'
             ]);

@@ -10,22 +10,25 @@ use App\Http\Controllers\API\CustomerTrackingController;
 use App\Http\Controllers\API\ScreenLayoutController;
 use App\Http\Controllers\API\WidgetController;
 
+// Handle preflight requests
 Route::options('/{any}', function () {
     return response()->json([], 204);
 })->where('any', '.*');
 
 Route::get('/', function () {
     return response()->json([
-        'message' => 'Hello World'
+        'message' => 'Queue Management API',
+        'version' => '1.0.0',
+        'status' => 'active'
     ]);
 });
 
-// Public routes
+// Public routes (no authentication required)
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-// Protected routes
-Route::middleware('auth:sanctum')->group(function () {
+// Protected routes (require authentication)
+Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/user', [AuthController::class, 'getUser']);
     Route::put('/user', [AuthController::class, 'updateUser']);
     Route::delete('/user', [AuthController::class, 'deleteUser']);
@@ -34,32 +37,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('queues')->group(function () {
         Route::get('/', [QueueController::class, 'index']);
         Route::post('/', [QueueController::class, 'store']);
+        Route::get('/stats', [QueueController::class, 'getStats']);
         Route::get('/{queue}', [QueueController::class, 'show']);
         Route::put('/{queue}', [QueueController::class, 'update']);
         Route::delete('/{queue}', [QueueController::class, 'destroy']);
-
-        // Queue control operations
-        Route::post('/{queue}/reset', [QueueController::class, 'reset']);
-        Route::post('/{queue}/pause', [QueueController::class, 'pause']);
-        Route::post('/{queue}/resume', [QueueController::class, 'resume']);
-        Route::post('/{queue}/close', [QueueController::class, 'close']);
-        Route::get('/{queue}/status', [QueueController::class, 'status']);
-
-        // Queue number operations
-        Route::post('/{queue}/call-next', [QueueController::class, 'callNext']);
-        Route::post('/{queue}/skip', [QueueController::class, 'skip']);
-        Route::post('/{queue}/recall', [QueueController::class, 'recall']);
-
-        // Inventory management (for inventory queues)
-        Route::post('/{queue}/adjust-stock', [QueueController::class, 'adjustStock']);
-        Route::post('/{queue}/undo-last-entry', [QueueController::class, 'undoLastEntry']);
-
-        // Queue data
-        Route::get('/{queue}/entries', [QueueController::class, 'entries']);
-        Route::get('/{queue}/analytics', [QueueController::class, 'analytics']);
+        Route::post('/{queue}/start', [QueueController::class, 'startQueue']);
+        Route::post('/{queue}/stop', [QueueController::class, 'stopQueue']);
+        Route::post('/{queue}/reset', [QueueController::class, 'resetQueue']);
+        Route::post('/{queue}/next', [QueueController::class, 'callNext']);
+        Route::post('/{queue}/recall', [QueueController::class, 'recallCurrent']);
+        Route::get('/{queue}/entries', [QueueController::class, 'getEntries']);
+        Route::get('/{queue}/active-entries', [QueueController::class, 'getActiveEntries']);
+        Route::get('/{queue}/completed-entries', [QueueController::class, 'getCompletedEntries']);
+        Route::get('/{queue}/wait-times', [QueueController::class, 'getWaitTimes']);
+        Route::post('/{queue}/bulk-update', [QueueController::class, 'bulkUpdate']);
     });
 
-    // Queue Entries - Complete CRUD and management operations
+    // Queue Entries - Complete CRUD and status management
     Route::prefix('entries')->group(function () {
         Route::get('/', [QueueEntryController::class, 'index']);
         Route::get('/all-details', [QueueEntryController::class, 'getAllEntriesWithDetails']);
@@ -126,16 +120,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Widgets
     Route::prefix('widgets')->group(function () {
-        Route::get('/data', [WidgetController::class, 'fetch']);
-        Route::get('/stats', [WidgetController::class, 'getStats']);
-        Route::get('/real-time', [WidgetController::class, 'getRealTimeData']);
-        Route::get('/preview', [WidgetController::class, 'getPreviewData']);
-        Route::get('/type/{type}', [WidgetController::class, 'getByType']);
-        Route::patch('/{widget}/settings', [WidgetController::class, 'updateSettings']);
-    });
-
-    // Layout-specific widget operations
-    Route::prefix('layouts/{layout}/widgets')->group(function () {
-        Route::get('/', [WidgetController::class, 'getByLayout']);
+        Route::get('/', [WidgetController::class, 'index']);
+        Route::post('/', [WidgetController::class, 'store']);
+        Route::get('/{widget}', [WidgetController::class, 'show']);
+        Route::put('/{widget}', [WidgetController::class, 'update']);
+        Route::delete('/{widget}', [WidgetController::class, 'destroy']);
+        Route::post('/{widget}/duplicate', [WidgetController::class, 'duplicate']);
+        Route::get('/types', [WidgetController::class, 'getTypes']);
+        Route::get('/templates', [WidgetController::class, 'getTemplates']);
     });
 });

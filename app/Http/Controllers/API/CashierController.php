@@ -27,11 +27,20 @@ class CashierController extends Controller
     {
         try {
             $filters = $request->only(['is_active', 'assigned_queue_id', 'role', 'status', 'is_available']);
-            $cashiers = $this->cashierService->getCashiers($filters);
+            $perPage = $request->input('per_page', 15);
+            $cashiers = $this->cashierService->getCashiers($filters, $perPage);
 
             return response()->json([
                 'success' => true,
-                'data' => $cashiers,
+                'data' => $cashiers->items(),
+                'pagination' => [
+                    'current_page' => $cashiers->currentPage(),
+                    'last_page' => $cashiers->lastPage(),
+                    'per_page' => $cashiers->perPage(),
+                    'total' => $cashiers->total(),
+                    'from' => $cashiers->firstItem(),
+                    'to' => $cashiers->lastItem(),
+                ],
                 'message' => 'Cashiers retrieved successfully'
             ]);
         } catch (\Exception $e) {
@@ -262,24 +271,35 @@ class CashierController extends Controller
     {
         try {
             $filters = $request->only(['is_active', 'assigned_queue_id', 'role', 'status', 'is_available']);
-            $cashiers = $this->cashierService->getCashiers($filters);
+            $perPage = $request->input('per_page', 10);
+            $cashiers = $this->cashierService->getPaginatedDetailedInfo($filters, $perPage);
 
-            // Transform data to include detailed information
-            $detailedCashiers = $cashiers->map(function ($cashier) {
+            // Transform data to include detailed information for current page only
+            $detailedCashiers = $cashiers->getCollection()->map(function ($cashier) {
                 return $this->cashierService->getCashierWithDetails($cashier);
             });
+
+            // Calculate summary for current page only
+            $summary = [
+                'active_cashiers' => $detailedCashiers->where('status_info.is_active', true)->count(),
+                'available_cashiers' => $detailedCashiers->where('status_info.is_available', true)->count(),
+                'on_shift_cashiers' => $detailedCashiers->where('shift_info.is_on_shift', true)->count(),
+            ];
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'cashiers' => $detailedCashiers,
-                    'total_count' => $detailedCashiers->count(),
+                    'summary' => $summary,
                     'filters_applied' => $filters,
-                    'summary' => [
-                        'active_cashiers' => $detailedCashiers->where('status_info.is_active', true)->count(),
-                        'available_cashiers' => $detailedCashiers->where('status_info.is_available', true)->count(),
-                        'on_shift_cashiers' => $detailedCashiers->where('shift_info.is_on_shift', true)->count(),
-                    ]
+                ],
+                'pagination' => [
+                    'current_page' => $cashiers->currentPage(),
+                    'last_page' => $cashiers->lastPage(),
+                    'per_page' => $cashiers->perPage(),
+                    'total' => $cashiers->total(),
+                    'from' => $cashiers->firstItem(),
+                    'to' => $cashiers->lastItem(),
                 ],
                 'message' => 'Detailed cashier information retrieved successfully'
             ]);
@@ -298,10 +318,11 @@ class CashierController extends Controller
     {
         try {
             $filters = $request->only(['is_active', 'assigned_queue_id', 'role', 'status']);
-            $cashiers = $this->cashierService->getCashiers($filters);
+            $perPage = $request->input('per_page', 20);
+            $cashiers = $this->cashierService->getCashiers($filters, $perPage);
 
-            // Transform data to include only essential information
-            $essentialCashiers = $cashiers->map(function ($cashier) {
+            // Transform data to include only essential information for current page
+            $essentialCashiers = $cashiers->getCollection()->map(function ($cashier) {
                 return $this->cashierService->getEssentialInfo($cashier);
             });
 
@@ -309,8 +330,15 @@ class CashierController extends Controller
                 'success' => true,
                 'data' => [
                     'cashiers' => $essentialCashiers,
-                    'total_count' => $essentialCashiers->count(),
                     'filters_applied' => $filters
+                ],
+                'pagination' => [
+                    'current_page' => $cashiers->currentPage(),
+                    'last_page' => $cashiers->lastPage(),
+                    'per_page' => $cashiers->perPage(),
+                    'total' => $cashiers->total(),
+                    'from' => $cashiers->firstItem(),
+                    'to' => $cashiers->lastItem(),
                 ],
                 'message' => 'Essential cashier information retrieved successfully'
             ]);

@@ -836,4 +836,74 @@ class CashierTest extends TestCase
                 'message' => 'Please provide a valid email address.'
             ]);
     }
+
+    /** @test */
+    public function it_can_create_multiple_cashiers()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        
+        $cashierData1 = [
+            'name' => 'John Doe',
+            'email' => 'john.doe@example.com',
+            'phone' => '1234567890',
+            'role' => 'cashier'
+        ];
+        
+        $cashierData2 = [
+            'name' => 'Jane Smith',
+            'email' => 'jane.smith@example.com',
+            'phone' => '0987654321',
+            'role' => 'senior_cashier'
+        ];
+        
+        $cashierData3 = [
+            'name' => 'Bob Johnson',
+            'email' => 'bob.johnson@example.com',
+            'phone' => '5555555555',
+            'role' => 'cashier'
+        ];
+
+        // Act - Create first cashier
+        $response1 = $this->postJson('/api/cashiers', $cashierData1);
+        
+        // Act - Create second cashier
+        $response2 = $this->postJson('/api/cashiers', $cashierData2);
+        
+        // Act - Create third cashier
+        $response3 = $this->postJson('/api/cashiers', $cashierData3);
+
+        // Assert - All should succeed
+        $response1->assertStatus(201)
+            ->assertJson([
+                'success' => true,
+                'message' => 'Cashier created successfully'
+            ]);
+            
+        $response2->assertStatus(201)
+            ->assertJson([
+                'success' => true,
+                'message' => 'Cashier created successfully'
+            ]);
+            
+        $response3->assertStatus(201)
+            ->assertJson([
+                'success' => true,
+                'message' => 'Cashier created successfully'
+            ]);
+
+        // Verify all cashiers exist in database
+        $this->assertDatabaseHas('cashiers', ['name' => 'John Doe']);
+        $this->assertDatabaseHas('cashiers', ['name' => 'Jane Smith']);
+        $this->assertDatabaseHas('cashiers', ['name' => 'Bob Johnson']);
+        
+        // Verify they have different IDs
+        $cashier1 = Cashier::where('name', 'John Doe')->first();
+        $cashier2 = Cashier::where('name', 'Jane Smith')->first();
+        $cashier3 = Cashier::where('name', 'Bob Johnson')->first();
+        
+        $this->assertNotEquals($cashier1->id, $cashier2->id);
+        $this->assertNotEquals($cashier2->id, $cashier3->id);
+        $this->assertNotEquals($cashier1->id, $cashier3->id);
+    }
 } 

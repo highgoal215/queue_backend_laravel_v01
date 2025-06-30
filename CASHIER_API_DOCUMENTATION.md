@@ -13,17 +13,40 @@ Most endpoints require authentication. Include the Bearer token in the Authoriza
 Authorization: Bearer {your-token}
 ```
 
+## Pagination
+Most list endpoints now support pagination to prevent large response bodies. Pagination parameters:
+- `page` (integer): Page number (default: 1)
+- `per_page` (integer): Items per page (default varies by endpoint)
+
+Response includes pagination metadata:
+```json
+{
+  "pagination": {
+    "current_page": 1,
+    "last_page": 5,
+    "per_page": 15,
+    "total": 75,
+    "from": 1,
+    "to": 15
+  }
+}
+```
+
 ## Cashier Endpoints
 
 ### 1. Get All Cashiers
 **GET** `/cashiers`
 
-Returns a list of all cashiers. Supports filtering by `is_active`, `assigned_queue_id`, and `role`.
+Returns a paginated list of all cashiers. Supports filtering by `is_active`, `assigned_queue_id`, and `role`.
 
 **Query Parameters:**
 - `is_active` (boolean)
 - `assigned_queue_id` (integer)
 - `role` (string)
+- `status` (string)
+- `is_available` (boolean)
+- `page` (integer, default: 1)
+- `per_page` (integer, default: 15)
 
 **Response:**
 ```json
@@ -46,6 +69,14 @@ Returns a list of all cashiers. Supports filtering by `is_active`, `assigned_que
             }
         }
     ],
+    "pagination": {
+        "current_page": 1,
+        "last_page": 3,
+        "per_page": 15,
+        "total": 35,
+        "from": 1,
+        "to": 15
+    },
     "message": "Cashiers retrieved successfully"
 }
 ```
@@ -223,6 +254,116 @@ Returns all queues with their assigned cashiers.
         }
     ],
     "message": "Queues with cashiers retrieved successfully"
+}
+```
+
+### 2. Get Detailed Cashier Information
+**GET** `/cashiers/detailed`
+
+Returns detailed cashier information with performance metrics, current status, and recent activity. This endpoint is paginated to handle large datasets efficiently.
+
+**Query Parameters:**
+- `is_active` (boolean)
+- `assigned_queue_id` (integer)
+- `role` (string)
+- `status` (string)
+- `is_available` (boolean)
+- `page` (integer, default: 1)
+- `per_page` (integer, default: 10)
+
+**Response:**
+```json
+{
+    "success": true,
+    "data": {
+        "cashiers": [
+            {
+                "id": 1,
+                "basic_info": {
+                    "name": "Cashier A",
+                    "employee_id": "EMP001",
+                    "email": "cashierA@example.com",
+                    "phone": "1234567890",
+                    "role": "main"
+                },
+                "status_info": {
+                    "is_active": true,
+                    "is_available": true,
+                    "status": "active",
+                    "shift_status": "on_shift",
+                    "current_workload": 3
+                },
+                "performance_metrics": {
+                    "total_served": 150,
+                    "average_service_time": "5.2 minutes",
+                    "efficiency_score": "11.5 entries/hour",
+                    "today_entries": 12,
+                    "week_entries": 45,
+                    "completion_rate": "95.6%"
+                }
+            }
+        ],
+        "summary": {
+            "active_cashiers": 8,
+            "available_cashiers": 6,
+            "on_shift_cashiers": 5
+        },
+        "filters_applied": {}
+    },
+    "pagination": {
+        "current_page": 1,
+        "last_page": 2,
+        "per_page": 10,
+        "total": 15,
+        "from": 1,
+        "to": 10
+    },
+    "message": "Detailed cashier information retrieved successfully"
+}
+```
+
+### 3. Get Essential Cashier Information
+**GET** `/cashiers/essential`
+
+Returns essential cashier information with minimal fields for quick overview. This endpoint is paginated for efficient data retrieval.
+
+**Query Parameters:**
+- `is_active` (boolean)
+- `assigned_queue_id` (integer)
+- `role` (string)
+- `status` (string)
+- `page` (integer, default: 1)
+- `per_page` (integer, default: 20)
+
+**Response:**
+```json
+{
+    "success": true,
+    "data": {
+        "cashiers": [
+            {
+                "id": 1,
+                "cashier_name": "Cashier A",
+                "employee_id": "EMP001",
+                "role": "main",
+                "status": "active",
+                "shift_start": "09:00",
+                "shift_end": "17:00",
+                "queue_name": "Customer Service",
+                "total_served": 150
+            }
+        ],
+        "filters_applied": {}
+    },
+    "pagination": {
+        "current_page": 1,
+        "last_page": 1,
+        "per_page": 20,
+        "total": 15,
+        "from": 1,
+        "to": 15
+    },
+    "message": "Essential cashier information retrieved successfully"
 }
 ```
 

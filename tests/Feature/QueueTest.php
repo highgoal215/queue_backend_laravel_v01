@@ -587,11 +587,491 @@ class QueueTest extends TestCase
     /** @test */
     public function it_requires_authentication_for_all_endpoints()
     {
-        // Act & Assert
-        $this->getJson('/api/queues')->assertStatus(401);
-        $this->postJson('/api/queues')->assertStatus(401);
-        $this->getJson('/api/queues/1')->assertStatus(401);
-        $this->putJson('/api/queues/1')->assertStatus(401);
-        $this->deleteJson('/api/queues/1')->assertStatus(401);
+        $queue = Queue::factory()->create();
+
+        $endpoints = [
+            'GET /api/queues' => '/api/queues',
+            'POST /api/queues' => '/api/queues',
+            'GET /api/queues/{id}' => "/api/queues/{$queue->id}",
+            'PUT /api/queues/{id}' => "/api/queues/{$queue->id}",
+            'DELETE /api/queues/{id}' => "/api/queues/{$queue->id}",
+        ];
+
+        foreach ($endpoints as $name => $endpoint) {
+            $method = str_contains($name, 'GET') ? 'getJson' : (str_contains($name, 'POST') ? 'postJson' : (str_contains($name, 'PUT') ? 'putJson' : 'deleteJson'));
+            $response = $this->$method($endpoint);
+            $response->assertStatus(401);
+        }
+    }
+
+    /** @test */
+    public function it_can_get_overall_queue_statistics()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        
+        // Create queues with different statuses
+        $activeQueue = Queue::factory()->create(['status' => 'active']);
+        $pausedQueue = Queue::factory()->create(['status' => 'paused']);
+        $closedQueue = Queue::factory()->create(['status' => 'closed']);
+
+        // Create entries with different statuses
+        QueueEntry::factory()->count(5)->create([
+            'queue_id' => $activeQueue->id,
+            'order_status' => 'completed'
+        ]);
+        QueueEntry::factory()->count(3)->create([
+            'queue_id' => $activeQueue->id,
+            'order_status' => 'queued'
+        ]);
+        QueueEntry::factory()->count(2)->create([
+            'queue_id' => $pausedQueue->id,
+            'order_status' => 'cancelled'
+        ]);
+
+        // Act
+        $response = $this->getJson('/api/queues/stats');
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'success',
+                'data' => [
+                    'total_queues',
+                    'active_queues',
+                    'paused_queues',
+                    'closed_queues',
+                    'total_entries',
+                    'completed_entries',
+                    'pending_entries',
+                    'cancelled_entries',
+                    'completion_rate',
+                    'average_wait_time'
+                ],
+                'message'
+            ])
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'total_queues' => 3,
+                    'active_queues' => 1,
+                    'paused_queues' => 1,
+                    'closed_queues' => 1,
+                    'total_entries' => 10,
+                    'completed_entries' => 5,
+                    'pending_entries' => 3,
+                    'cancelled_entries' => 2,
+                    'completion_rate' => 50.0
+                ]
+            ]);
+    }
+
+    /** @test */
+    public function it_can_get_active_entries_for_specific_queue()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $queue = Queue::factory()->create();
+        $cashier = Cashier::factory()->create();
+
+        // Create entries with different statuses
+        $activeEntries = QueueEntry::factory()->count(3)->create([
+            'queue_id' => $queue->id,
+            'order_status' => 'queued',
+            'cashier_id' => $cashier->id
+        ]);
+        QueueEntry::factory()->count(2)->create([
+            'queue_id' => $queue->id,
+            'order_status' => 'completed'
+        ]);
+
+        // Act
+        $response = $this->getJson("/api/queues/{$queue->id}/active-entries");
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'success',
+                'data' => [
+                    'queue_id',
+                    'queue_name',
+                    'active_entries' => [
+                        '*' => [
+                            'id',
+                            'queue_number',
+                            'customer_name',
+                            'order_details',
+                            'order_status',
+                            'estimated_wait_time',
+                            'created_at',
+                            'cashier' => [
+                                'id',
+                                'name'
+                            ],
+                            'tracking'
+                        ]
+                    ],
+                    'count'
+                ],
+                'message'
+            ])
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'queue_id' => $queue->id,
+                    'queue_name' => $queue->name,
+                    'count' => 3
+                ]
+            ]);
+    }
+
+    /** @test */
+    public function it_can_get_completed_entries_for_specific_queue()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $queue = Queue::factory()->create();
+        $cashier = Cashier::factory()->create();
+
+        // Create completed entries
+        $completedEntries = QueueEntry::factory()->count(5)->create([
+            'queue_id' => $queue->id,
+            'order_status' => 'completed',
+            'cashier_id' => $cashier->id,
+            'estimated_wait_time' => 15
+        ]);
+
+        // Create non-completed entries
+        QueueEntry::factory()->count(3)->create([
+            'queue_id' => $queue->id,
+            'order_status' => 'queued'
+        ]);
+
+        // Act
+        $response = $this->getJson("/api/queues/{$queue->id}/completed-entries");
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'success',
+                'data' => [
+                    'queue_id',
+                    'queue_name',
+                    'completed_entries' => [
+                        '*' => [
+                            'id',
+                            'queue_number',
+                            'customer_name',
+                            'order_details',
+                            'quantity_purchased',
+                            'estimated_wait_time',
+                            'completed_at',
+                            'created_at',
+                            'cashier' => [
+                                'id',
+                                'name'
+                            ]
+                        ]
+                    ],
+                    'pagination' => [
+                        'current_page',
+                        'last_page',
+                        'per_page',
+                        'total',
+                        'from',
+                        'to'
+                    ]
+                ],
+                'message'
+            ])
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'queue_id' => $queue->id,
+                    'queue_name' => $queue->name,
+                    'pagination' => [
+                        'total' => 5
+                    ]
+                ]
+            ]);
+    }
+
+    /** @test */
+    public function it_can_get_completed_entries_with_date_filter()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $queue = Queue::factory()->create();
+        $today = now()->format('Y-m-d');
+
+        // Create entries for today
+        QueueEntry::factory()->count(3)->create([
+            'queue_id' => $queue->id,
+            'order_status' => 'completed',
+            'created_at' => now()
+        ]);
+
+        // Create entries for yesterday
+        QueueEntry::factory()->count(2)->create([
+            'queue_id' => $queue->id,
+            'order_status' => 'completed',
+            'created_at' => now()->subDay()
+        ]);
+
+        // Act
+        $response = $this->getJson("/api/queues/{$queue->id}/completed-entries?date={$today}");
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'pagination' => [
+                        'total' => 3
+                    ]
+                ]
+            ]);
+    }
+
+    /** @test */
+    public function it_can_get_wait_times_for_specific_queue()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $queue = Queue::factory()->create();
+
+        // Create entries with wait times
+        QueueEntry::factory()->count(5)->create([
+            'queue_id' => $queue->id,
+            'estimated_wait_time' => 10,
+            'created_at' => now()
+        ]);
+        QueueEntry::factory()->count(3)->create([
+            'queue_id' => $queue->id,
+            'estimated_wait_time' => 20,
+            'created_at' => now()
+        ]);
+
+        // Act
+        $response = $this->getJson("/api/queues/{$queue->id}/wait-times");
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'success',
+                'data' => [
+                    'queue_id',
+                    'queue_name',
+                    'period',
+                    'total_entries',
+                    'average_wait_time',
+                    'min_wait_time',
+                    'max_wait_time',
+                    'hourly_trends',
+                    'wait_time_distribution' => [
+                        'under_5_min',
+                        '5_to_10_min',
+                        '10_to_15_min',
+                        '15_to_20_min',
+                        'over_20_min'
+                    ]
+                ],
+                'message'
+            ])
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'queue_id' => $queue->id,
+                    'queue_name' => $queue->name,
+                    'period' => 'today',
+                    'total_entries' => 8,
+                    'average_wait_time' => 13.75,
+                    'min_wait_time' => 10,
+                    'max_wait_time' => 20
+                ]
+            ]);
+    }
+
+    /** @test */
+    public function it_can_get_wait_times_with_different_periods()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $queue = Queue::factory()->create();
+
+        // Create entries for different periods
+        QueueEntry::factory()->count(3)->create([
+            'queue_id' => $queue->id,
+            'estimated_wait_time' => 15,
+            'created_at' => now()
+        ]);
+
+        // Act - Test week period
+        $response = $this->getJson("/api/queues/{$queue->id}/wait-times?period=week");
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'period' => 'week',
+                    'total_entries' => 3
+                ]
+            ]);
+    }
+
+    /** @test */
+    public function it_can_bulk_update_queue_entries()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $queue = Queue::factory()->create();
+        $cashier = Cashier::factory()->create();
+        
+        $entries = QueueEntry::factory()->count(3)->create([
+            'queue_id' => $queue->id,
+            'order_status' => 'queued'
+        ]);
+
+        $entryIds = $entries->pluck('id')->toArray();
+        $updateData = [
+            'entry_ids' => $entryIds,
+            'updates' => [
+                'order_status' => 'preparing',
+                'cashier_id' => $cashier->id,
+                'estimated_wait_time' => 15
+            ]
+        ];
+
+        // Act
+        $response = $this->postJson("/api/queues/{$queue->id}/bulk-update", $updateData);
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'success',
+                'data' => [
+                    'queue_id',
+                    'updated_entries' => [
+                        '*' => [
+                            'id',
+                            'order_status',
+                            'cashier_id',
+                            'estimated_wait_time'
+                        ]
+                    ],
+                    'count'
+                ],
+                'message'
+            ])
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'queue_id' => $queue->id,
+                    'count' => 3
+                ]
+            ]);
+
+        // Verify database updates
+        foreach ($entries as $entry) {
+            $this->assertDatabaseHas('queue_entries', [
+                'id' => $entry->id,
+                'order_status' => 'preparing',
+                'cashier_id' => $cashier->id,
+                'estimated_wait_time' => 15
+            ]);
+        }
+    }
+
+    /** @test */
+    public function it_validates_bulk_update_data()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $queue = Queue::factory()->create();
+        $entries = QueueEntry::factory()->count(2)->create(['queue_id' => $queue->id]);
+
+        $invalidData = [
+            'entry_ids' => $entries->pluck('id')->toArray(),
+            'updates' => [
+                'order_status' => 'invalid_status',
+                'estimated_wait_time' => -5
+            ]
+        ];
+
+        // Act
+        $response = $this->postJson("/api/queues/{$queue->id}/bulk-update", $invalidData);
+
+        // Assert
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['updates.order_status', 'updates.estimated_wait_time']);
+    }
+
+    /** @test */
+    public function it_cannot_bulk_update_entries_from_different_queue()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $queue1 = Queue::factory()->create();
+        $queue2 = Queue::factory()->create();
+        
+        $entry1 = QueueEntry::factory()->create(['queue_id' => $queue1->id]);
+        $entry2 = QueueEntry::factory()->create(['queue_id' => $queue2->id]);
+
+        $updateData = [
+            'entry_ids' => [$entry1->id, $entry2->id],
+            'updates' => [
+                'order_status' => 'preparing'
+            ]
+        ];
+
+        // Act
+        $response = $this->postJson("/api/queues/{$queue1->id}/bulk-update", $updateData);
+
+        // Assert
+        $response->assertStatus(400)
+            ->assertJson([
+                'success' => false,
+                'message' => 'Some entries do not belong to this queue'
+            ]);
+    }
+
+    /** @test */
+    public function it_can_bulk_update_with_partial_data()
+    {
+        // Arrange
+        Sanctum::actingAs($this->user);
+        $queue = Queue::factory()->create();
+        $entries = QueueEntry::factory()->count(2)->create([
+            'queue_id' => $queue->id,
+            'order_status' => 'queued'
+        ]);
+
+        $updateData = [
+            'entry_ids' => $entries->pluck('id')->toArray(),
+            'updates' => [
+                'order_status' => 'preparing'
+            ]
+        ];
+
+        // Act
+        $response = $this->postJson("/api/queues/{$queue->id}/bulk-update", $updateData);
+
+        // Assert
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'count' => 2
+                ]
+            ]);
+
+        // Verify only status was updated
+        foreach ($entries as $entry) {
+            $this->assertDatabaseHas('queue_entries', [
+                'id' => $entry->id,
+                'order_status' => 'preparing'
+            ]);
+        }
     }
 }

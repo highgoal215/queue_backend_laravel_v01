@@ -44,10 +44,17 @@ class QueueController extends Controller
 
     public function store(StoreQueueRequest $request): JsonResponse
     {
+        // Debug logging to see if function is called
+        Log::info('Queue store function called', [
+            'request_data' => $request->all(),
+            'validated_data' => $request->validated(),
+            'user' => $request->user()
+        ]);
+
         try {
             $queue = $this->queueService->createQueue($request->validated());
 
-            Log::info(message: 'Queue', context: [
+            Log::info(message: 'Queue-----------<>', context: [
                 'data' => $queue
             ]);
 
@@ -57,6 +64,11 @@ class QueueController extends Controller
                 'message' => 'Queue created successfully'
             ], 201);
         } catch (\Exception $e) {
+            Log::error('Queue store error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create queue: ' . $e->getMessage()
@@ -426,6 +438,299 @@ class QueueController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve queue analytics: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get overall statistics for all queues
+     */
+    public function getStats(): JsonResponse
+    {
+        try {
+            $queues = Queue::all();
+            $totalQueues = $queues->count();
+            $activeQueues = $queues->where('status', 'active')->count();
+            $pausedQueues = $queues->where('status', 'paused')->count();
+            $closedQueues = $queues->where('status', 'closed')->count();
+
+            $totalEntries = 0;
+            $completedEntries = 0;
+            $pendingEntries = 0;
+            $cancelledEntries = 0;
+
+            foreach ($queues as $queue) {
+                $totalEntries += $queue->entries()->count();
+                $completedEntries += $queue->entries()->where('order_status', 'completed')->count();
+                $pendingEntries += $queue->entries()->whereIn('order_status', ['queued', 'kitchen', 'preparing'])->count();
+                $cancelledEntries += $queue->entries()->where('order_status', 'cancelled')->count();
+            }
+
+            $stats = [
+                'total_queues' => $totalQueues,
+                'active_queues' => $activeQueues,
+                'paused_queues' => $pausedQueues,
+                'closed_queues' => $closedQueues,
+                'total_entries' => $totalEntries,
+                'completed_entries' => $completedEntries,
+                'pending_entries' => $pendingEntries,
+                'cancelled_entries' => $cancelledEntries,
+                'completion_rate' => $totalEntries > 0 ? round(($completedEntries / $totalEntries) * 100, 2) : 0,
+                'average_wait_time' => \App\Models\QueueEntry::whereNotNull('estimated_wait_time')->avg('estimated_wait_time') ?? 0,
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $stats,
+                'message' => 'Queue statistics retrieved successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve queue statistics: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get active entries for a specific queue
+     */
+    public function getActiveEntries(Queue $queue): JsonResponse
+    {
+        try {
+            $activeEntries = $queue->entries()
+                ->whereIn('order_status', ['queued', 'kitchen', 'preparing', 'serving'])
+                ->with(['cashier', 'tracking'])
+                ->orderBy('queue_number', 'asc')
+                ->get();
+
+            $transformedEntries = $activeEntries->map(function ($entry) {
+                return [
+                    'id' => $entry->id,
+                    'queue_number' => $entry->queue_number,
+                    'customer_name' => $entry->customer_name ?? 'Anonymous',
+                    'order_details' => $entry->order_details,
+                    'order_status' => $entry->order_status,
+                    'estimated_wait_time' => $entry->estimated_wait_time,
+                    'created_at' => $entry->created_at->format('Y-m-d H:i:s'),
+                    'cashier' => $entry->cashier ? [
+                        'id' => $entry->cashier->id,
+                        'name' => $entry->cashier->name
+                    ] : null,
+                    'tracking' => $entry->tracking ? [
+                        'status' => $entry->tracking->status,
+                        'last_updated' => $entry->tracking->updated_at->format('Y-m-d H:i:s')
+                    ] : null
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'queue_id' => $queue->id,
+                    'queue_name' => $queue->name,
+                    'active_entries' => $transformedEntries,
+                    'count' => $activeEntries->count()
+                ],
+                'message' => 'Active entries retrieved successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve active entries: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get completed entries for a specific queue
+     */
+    public function getCompletedEntries(Queue $queue): JsonResponse
+    {
+        try {
+            $request = request();
+            $perPage = $request->input('per_page', 15);
+            $date = $request->input('date');
+
+            $query = $queue->entries()
+                ->where('order_status', 'completed')
+                ->with(['cashier', 'tracking']);
+
+            if ($date) {
+                $query->whereDate('created_at', $date);
+            }
+
+            $completedEntries = $query->orderBy('created_at', 'desc')->paginate($perPage);
+
+            $transformedEntries = $completedEntries->getCollection()->map(function ($entry) {
+                return [
+                    'id' => $entry->id,
+                    'queue_number' => $entry->queue_number,
+                    'customer_name' => $entry->customer_name ?? 'Anonymous',
+                    'order_details' => $entry->order_details,
+                    'quantity_purchased' => $entry->quantity_purchased,
+                    'estimated_wait_time' => $entry->estimated_wait_time,
+                    'completed_at' => $entry->updated_at->format('Y-m-d H:i:s'),
+                    'created_at' => $entry->created_at->format('Y-m-d H:i:s'),
+                    'cashier' => $entry->cashier ? [
+                        'id' => $entry->cashier->id,
+                        'name' => $entry->cashier->name
+                    ] : null
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'queue_id' => $queue->id,
+                    'queue_name' => $queue->name,
+                    'completed_entries' => $transformedEntries,
+                    'pagination' => [
+                        'current_page' => $completedEntries->currentPage(),
+                        'last_page' => $completedEntries->lastPage(),
+                        'per_page' => $completedEntries->perPage(),
+                        'total' => $completedEntries->total(),
+                        'from' => $completedEntries->firstItem(),
+                        'to' => $completedEntries->lastItem(),
+                    ]
+                ],
+                'message' => 'Completed entries retrieved successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve completed entries: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get wait times for a specific queue
+     */
+    public function getWaitTimes(Queue $queue): JsonResponse
+    {
+        try {
+            $request = request();
+            $period = $request->input('period', 'today'); // today, week, month
+
+            $query = $queue->entries()->whereNotNull('estimated_wait_time');
+
+            switch ($period) {
+                case 'today':
+                    $query->whereDate('created_at', today());
+                    break;
+                case 'week':
+                    $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                    break;
+                case 'month':
+                    $query->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()]);
+                    break;
+                default:
+                    $query->whereDate('created_at', today());
+            }
+
+            $entries = $query->get();
+
+            $averageWaitTime = $entries->avg('estimated_wait_time') ?? 0;
+            $minWaitTime = $entries->min('estimated_wait_time') ?? 0;
+            $maxWaitTime = $entries->max('estimated_wait_time') ?? 0;
+
+            // Group by hour for trend analysis
+            $hourlyData = $entries->groupBy(function ($entry) {
+                return $entry->created_at->format('H');
+            })->map(function ($group) {
+                return [
+                    'count' => $group->count(),
+                    'average_wait_time' => $group->avg('estimated_wait_time')
+                ];
+            });
+
+            $waitTimeStats = [
+                'queue_id' => $queue->id,
+                'queue_name' => $queue->name,
+                'period' => $period,
+                'total_entries' => $entries->count(),
+                'average_wait_time' => round($averageWaitTime, 2),
+                'min_wait_time' => $minWaitTime,
+                'max_wait_time' => $maxWaitTime,
+                'hourly_trends' => $hourlyData,
+                'wait_time_distribution' => [
+                    'under_5_min' => $entries->where('estimated_wait_time', '<', 5)->count(),
+                    '5_to_10_min' => $entries->whereBetween('estimated_wait_time', [5, 10])->count(),
+                    '10_to_15_min' => $entries->whereBetween('estimated_wait_time', [10, 15])->count(),
+                    '15_to_20_min' => $entries->whereBetween('estimated_wait_time', [15, 20])->count(),
+                    'over_20_min' => $entries->where('estimated_wait_time', '>', 20)->count(),
+                ]
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $waitTimeStats,
+                'message' => 'Wait time statistics retrieved successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve wait time statistics: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Bulk update queue entries
+     */
+    public function bulkUpdate(Request $request, Queue $queue): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'entry_ids' => 'required|array',
+                'entry_ids.*' => 'exists:queue_entries,id',
+                'updates' => 'required|array',
+                'updates.order_status' => 'sometimes|in:queued,kitchen,preparing,serving,completed,cancelled',
+                'updates.cashier_id' => 'sometimes|exists:cashiers,id',
+                'updates.estimated_wait_time' => 'sometimes|integer|min:1',
+                'updates.notes' => 'sometimes|string|max:500',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $entryIds = $request->input('entry_ids');
+            $updates = $request->input('updates');
+            $updatedEntries = [];
+
+            // Verify all entries belong to the specified queue
+            $entries = $queue->entries()->whereIn('id', $entryIds)->get();
+            if ($entries->count() !== count($entryIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Some entries do not belong to this queue'
+                ], 400);
+            }
+
+            foreach ($entries as $entry) {
+                $entry->update($updates);
+                $updatedEntries[] = $entry->fresh()->load(['cashier', 'tracking']);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'queue_id' => $queue->id,
+                    'updated_entries' => $updatedEntries,
+                    'count' => count($updatedEntries)
+                ],
+                'message' => 'Entries updated successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to bulk update entries: ' . $e->getMessage()
             ], 500);
         }
     }

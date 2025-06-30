@@ -35,6 +35,7 @@ Route::get('/test-auth', function () {
     ]);
 });
 
+
 // Protected routes (require authentication)
 Route::middleware(['auth:sanctum'])->group(function () {
     // Test protected endpoint

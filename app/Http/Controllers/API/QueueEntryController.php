@@ -262,7 +262,7 @@ class QueueEntryController extends Controller
         try {
             $queueId = $request->input('queue_id');
             $queue = $queueId ? Queue::find($queueId) : null;
-            
+
             $entries = $this->queueEntryService->getEntriesByStatus($status, $queue);
             
             return response()->json([

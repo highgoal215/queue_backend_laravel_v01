@@ -54,19 +54,20 @@ Route::middleware(['auth:sanctum'])->group(function () {
       Route::prefix('queues')->group(function () {
         Route::get('/', [QueueController::class, 'index']);
         Route::post('/', [QueueController::class, 'store']);
+        Route::get('/status', [QueueController::class, 'status']);
         Route::get('/stats', [QueueController::class, 'getStats']);
         Route::get('/{queue}', [QueueController::class, 'show']);
         Route::put('/{queue}', [QueueController::class, 'update']);
         Route::delete('/{queue}', [QueueController::class, 'destroy']);
-        Route::post('/{queue}/start', [QueueController::class, 'startQueue']);
-        Route::post('/{queue}/stop', [QueueController::class, 'stopQueue']);
-        Route::post('/{queue}/reset', [QueueController::class, 'resetQueue']);
+        Route::post('/{queue}/reset', [QueueController::class, 'reset']);
+        Route::post('/{queue}/stop', [QueueController::class, 'pause']);
+        Route::post('/{queue}/start', [QueueController::class, 'resume']);
         Route::post('/{queue}/next', [QueueController::class, 'callNext']);
-        Route::post('/{queue}/recall', [QueueController::class, 'recallCurrent']);
+        Route::post('/{queue}/recall', [QueueController::class, 'recall']);
         Route::post('/{queue}/skip', [QueueController::class, 'skip']);
         Route::post('/{queue}/adjust-stock', [QueueController::class, 'adjustStock']);
         Route::post('/{queue}/undo-last-entry', [QueueController::class, 'undoLastEntry']);
-        Route::get('/{queue}/entries', [QueueController::class, 'getEntries']);
+        Route::get('/{queue}/entries', [QueueController::class, 'entries']);
         Route::get('/{queue}/active-entries', [QueueController::class, 'getActiveEntries']);
         Route::get('/{queue}/completed-entries', [QueueController::class, 'getCompletedEntries']);
         Route::get('/{queue}/wait-times', [QueueController::class, 'getWaitTimes']);
